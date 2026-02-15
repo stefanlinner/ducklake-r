@@ -4,18 +4,115 @@
 \alias{attach_ducklake}
 \title{Create or attach a ducklake}
 \usage{
-attach_ducklake(ducklake_name, lake_path = NULL)
+attach_ducklake(
+  ducklake_name,
+  lake_path = NULL,
+  backend = c("duckdb", "postgres", "sqlite", "mysql"),
+  catalog_connection_string = NULL,
+  read_only = FALSE
+)
 }
 \arguments{
-\item{ducklake_name}{Name for the ducklake file, as in \verb{ducklake:\{ducklake_name\}.ducklake}}
+\item{ducklake_name}{Name for the ducklake, used as the database alias in DuckDB}
 
-\item{lake_path}{Optional directory path for the ducklake. If specified, both the ducklake database file and Parquet data files will be stored in this location. If not specified, the ducklake is created in the current working directory with data files in \verb{\{ducklake_name\}.ducklake.files}.}
+\item{lake_path}{Optional directory path for the ducklake. For the default
+\code{"duckdb"} backend, this is where the catalog database file and Parquet
+data files will be stored. For other backends, this specifies the storage
+location for Parquet data files (corresponding to DuckLake's \code{DATA_PATH}
+parameter).}
+
+\item{backend}{Catalog database backend to use. One of \code{"duckdb"} (default),
+\code{"postgres"}, \code{"sqlite"}, or \code{"mysql"}. Non-DuckDB backends
+allow multiple clients to access the DuckLake concurrently.}
+
+\item{catalog_connection_string}{Backend-specific connection string for the
+catalog database. Interpretation depends on \code{backend}:
+\describe{
+\item{\code{"duckdb"}}{Not required. Defaults to \code{"{ducklake_name}.ducklake"}.}
+\item{\code{"postgres"}}{A libpq connection string, e.g.,
+\code{"dbname=ducklake_catalog host=localhost port=5432 user=analyst"}.
+The target database must already exist in PostgreSQL.}
+\item{\code{"sqlite"}}{Path to the SQLite file, e.g., \code{"metadata.sqlite"}.}
+\item{\code{"mysql"}}{A MySQL connection string, e.g.,
+\code{"db=ducklake_catalog host=localhost user=analyst"}.
+The target database must already exist in MySQL.}
+}}
+
+\item{read_only}{Logical. Whether to attach in read-only mode (default \code{FALSE}).}
 }
 \description{
 This function is a wrapper for the ducklake \href{https://ducklake.select/docs/stable/duckdb/usage/connecting}{ATTACH} command.
-It will create a new DuckDB-backed DuckLake if the specified name does not exist, or connect to the existing DuckLake if it does exist.
-The connection is stored in the package environment and can be closed with detach_ducklake().
+It will create a new DuckLake if the specified name does not exist, or connect to
+the existing DuckLake if it does exist. The connection is stored in the package
+environment and can be closed with \code{detach_ducklake()}.
+}
+\details{
+By default, DuckDB is used as the catalog database. Alternative catalog backends
+(PostgreSQL, SQLite, MySQL) can be selected via the \code{backend} parameter.
+Using an external catalog backend enables multiple clients to read and write to
+the same DuckLake concurrently, which is not possible with the DuckDB backend.
+
+See \url{https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database}
+for guidance on choosing a catalog backend.
+}
+\section{Credential Management}{
+
+For secure credential management with PostgreSQL or MySQL backends, consider
+using DuckDB's built-in secrets manager instead of embedding credentials in the
+connection string. Secrets can be created via \code{DBI::dbExecute()} on the
+DuckLake connection before calling \code{attach_ducklake()}:
+
+\preformatted{conn <- get_ducklake_connection()
+DBI::dbExecute(conn, "CREATE SECRET (
+    TYPE postgres,
+    HOST '127.0.0.1',
+    PORT 5432,
+    DATABASE ducklake_catalog,
+    USER 'analyst',
+    PASSWORD 'secret'
+)")}
+
+Then pass an empty or partial \code{catalog_connection_string} — DuckDB will
+fill in the missing values from the secret. Persistent secrets (using
+\code{CREATE PERSISTENT SECRET}) survive across sessions.
+
+See \url{https://duckdb.org/docs/stable/configuration/secrets_manager} for details.
+}
+
+\examples{
+\dontrun{
+# Default: DuckDB catalog (single-client)
+attach_ducklake("my_lake")
+
+# DuckDB catalog with custom data path
+attach_ducklake("my_lake", lake_path = "~/data/lake")
+
+# PostgreSQL catalog (multi-client)
+attach_ducklake(
+  "my_lake",
+  backend = "postgres",
+  catalog_connection_string = "dbname=ducklake_catalog host=localhost",
+  lake_path = "/shared/lake/data/"
+)
+
+# SQLite catalog (multi-process local)
+attach_ducklake(
+  "my_lake",
+  backend = "sqlite",
+  catalog_connection_string = "metadata.sqlite",
+  lake_path = "data_files/"
+)
+
+# MySQL catalog (multi-client)
+attach_ducklake(
+  "my_lake",
+  backend = "mysql",
+  catalog_connection_string = "db=ducklake_catalog host=localhost",
+  lake_path = "data_files/"
+)
+}
 }
 \seealso{
-\code{\link[=detach_ducklake]{detach_ducklake()}} to close the connection
+\code{\link[=detach_ducklake]{detach_ducklake()}} to close the connection, \code{\link[=install_ducklake]{install_ducklake()}} to
+install required DuckDB extensions
 }

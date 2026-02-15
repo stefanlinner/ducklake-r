@@ -9,7 +9,8 @@ backup_ducklake(ducklake_name, lake_path, backup_path)
 \arguments{
 \item{ducklake_name}{Name of the attached DuckLake}
 
-\item{lake_path}{Path to the DuckLake directory containing the catalog file}
+\item{lake_path}{Path to the DuckLake directory containing the data files
+(and catalog file for DuckDB/SQLite backends)}
 
 \item{backup_path}{Directory where backups should be stored. A timestamped
 subdirectory will be created within this path.}
@@ -18,17 +19,22 @@ subdirectory will be created within this path.}
 Invisibly returns the path to the created backup directory
 }
 \description{
-Creates a timestamped backup of both the catalog database and data files.
-The backup includes the complete state of the DuckLake at the time of backup,
-allowing for point-in-time recovery.
+Creates a timestamped backup of the Parquet data files and, for file-based
+catalog backends (DuckDB, SQLite), the catalog database file.
 }
 \details{
-The function creates a complete backup by:
+The function creates a backup by:
 \enumerate{
 \item Creating a timestamped backup directory
-\item Copying the catalog database file (.ducklake)
-\item Copying all data files from the main/ directory
+\item Copying the catalog database file (.ducklake or .sqlite) if the backend
+is file-based (DuckDB or SQLite)
+\item Copying all Parquet data files from the main/ directory
 }
+
+For remote catalog backends (PostgreSQL, MySQL), only the Parquet data files
+are backed up. The catalog database must be backed up separately using the
+database's own backup tools (e.g., \code{pg_dump} for PostgreSQL,
+\code{mysqldump} for MySQL).
 
 \strong{Important notes:}
 \itemize{

@@ -40,7 +40,7 @@ create_table <- function(data_source, table_name) {
     duckdb::duckdb_register(get_ducklake_connection(), temp_view_name, data_source)
     
     # Create the table from the temporary view
-    duckplyr::db_exec(sprintf("CREATE TABLE %s AS SELECT * FROM %s;", table_name, temp_view_name))
+    ducklake_db_exec(sprintf("CREATE TABLE %s AS SELECT * FROM %s;", table_name, temp_view_name))
     
     # Unregister the temporary view
     duckdb::duckdb_unregister(get_ducklake_connection(), temp_view_name)
@@ -51,16 +51,16 @@ create_table <- function(data_source, table_name) {
   # If data_source is a URL, ensure httpfs extension is installed and loaded
   if (is.character(data_source) && grepl("^https?://", data_source)) {
     tryCatch({
-      duckplyr::db_exec("LOAD httpfs;")
+      ducklake_db_exec("LOAD httpfs;")
     }, error = function(e) {
-      duckplyr::db_exec("INSTALL httpfs;")
-      duckplyr::db_exec("LOAD httpfs;")
+      ducklake_db_exec("INSTALL httpfs;")
+      ducklake_db_exec("LOAD httpfs;")
     })
   }
   
   # Handle file paths and URLs
   if (is.character(data_source)) {
-    duckplyr::db_exec(sprintf("CREATE TABLE %s AS FROM '%s';", table_name, data_source))
+    ducklake_db_exec(sprintf("CREATE TABLE %s AS FROM '%s';", table_name, data_source))
   } else {
     stop("data_source must be a character string (file path or URL) or a data.frame")
   }

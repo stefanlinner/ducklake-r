@@ -4,11 +4,29 @@
 \alias{install_ducklake}
 \title{Install the ducklake extension to duckdb}
 \usage{
-install_ducklake()
+install_ducklake(backend = NULL)
+}
+\arguments{
+\item{backend}{Character vector of backends to install extensions for. The
+\code{"ducklake"} extension is always installed. Additional values install
+the corresponding DuckDB extension needed for that catalog backend:
+\code{"postgres"}, \code{"sqlite"}, and/or \code{"mysql"}. Default installs
+only the ducklake extension.}
 }
 \description{
-This only needs to be run once on your system.
+Installs the ducklake DuckDB extension and optionally the extensions required
+for alternative catalog backends (postgres, sqlite, mysql). This only needs to
+be run once on your system per DuckDB version.
 }
 \examples{
-ducklake::install_ducklake()
+\dontrun{
+# Install ducklake only (default)
+install_ducklake()
+
+# Install ducklake + postgres extension
+install_ducklake(backend = "postgres")
+
+# Install all supported backend extensions at once
+install_ducklake(backend = c("postgres", "sqlite", "mysql"))
+}
 }

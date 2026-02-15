@@ -10,7 +10,7 @@ detach_ducklake(ducklake_name = NULL)
 \item{ducklake_name}{Optional name of the ducklake to detach. If not provided, closes the current connection.}
 }
 \description{
-Closes the DuckDB connection and detaches from the current DuckLake.
+Detaches from the current DuckLake and closes the DuckDB connection.
 }
 \examples{
 \dontrun{

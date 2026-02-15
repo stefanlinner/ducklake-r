@@ -1,11 +1,11 @@
 #' Create a complete DuckLake backup
 #'
-#' Creates a timestamped backup of both the catalog database and data files.
-#' The backup includes the complete state of the DuckLake at the time of backup,
-#' allowing for point-in-time recovery.
+#' Creates a timestamped backup of the Parquet data files and, for file-based
+#' catalog backends (DuckDB, SQLite), the catalog database file.
 #'
 #' @param ducklake_name Name of the attached DuckLake
-#' @param lake_path Path to the DuckLake directory containing the catalog file
+#' @param lake_path Path to the DuckLake directory containing the data files
+#'   (and catalog file for DuckDB/SQLite backends)
 #' @param backup_path Directory where backups should be stored. A timestamped
 #'   subdirectory will be created within this path.
 #'
@@ -13,12 +13,18 @@
 #' @export
 #'
 #' @details
-#' The function creates a complete backup by:
+#' The function creates a backup by:
 #' \enumerate{
 #'   \item Creating a timestamped backup directory
-#'   \item Copying the catalog database file (.ducklake)
-#'   \item Copying all data files from the main/ directory
+#'   \item Copying the catalog database file (.ducklake or .sqlite) if the backend
+#'     is file-based (DuckDB or SQLite)
+#'   \item Copying all Parquet data files from the main/ directory
 #' }
+#'
+#' For remote catalog backends (PostgreSQL, MySQL), only the Parquet data files
+#' are backed up. The catalog database must be backed up separately using the
+#' database's own backup tools (e.g., \code{pg_dump} for PostgreSQL,
+#' \code{mysqldump} for MySQL).
 #'
 #' **Important notes:**
 #' \itemize{
@@ -59,27 +65,51 @@
 backup_ducklake <- function(ducklake_name, lake_path, backup_path) {
   # Validate inputs
   if (!is.character(ducklake_name) || length(ducklake_name) != 1) {
-    stop("ducklake_name must be a single character string")
+    cli::cli_abort("{.arg ducklake_name} must be a single character string.")
   }
   if (!dir.exists(lake_path)) {
-    stop("lake_path does not exist: ", lake_path)
+    cli::cli_abort("{.arg lake_path} does not exist: {.path {lake_path}}")
   }
+  
+  backend <- get_ducklake_backend()
   
   # Create backup directory with timestamp
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
   backup_dir <- file.path(backup_path, paste0("backup_", timestamp))
   dir.create(backup_dir, recursive = TRUE, showWarnings = FALSE)
   
-  # Backup catalog
-  catalog_file <- file.path(lake_path, paste0(ducklake_name, ".ducklake"))
-  if (file.exists(catalog_file)) {
-    file.copy(
-      from = catalog_file,
-      to = file.path(backup_dir, paste0(ducklake_name, ".ducklake"))
-    )
-    message("Catalog backed up successfully")
+  # Backup catalog for file-based backends
+  if (backend == "duckdb") {
+    catalog_file <- file.path(lake_path, paste0(ducklake_name, ".ducklake"))
+    if (file.exists(catalog_file)) {
+      file.copy(
+        from = catalog_file,
+        to = file.path(backup_dir, paste0(ducklake_name, ".ducklake"))
+      )
+      cli::cli_inform("Catalog backed up successfully.")
+    } else {
+      cli::cli_warn("Catalog file not found: {.path {catalog_file}}")
+    }
+  } else if (backend == "sqlite") {
+    # For SQLite, the catalog connection string is the file path
+    catalog_file <- .ducklake_env$catalog_connection_string
+    if (!is.null(catalog_file) && file.exists(catalog_file)) {
+      file.copy(
+        from = catalog_file,
+        to = file.path(backup_dir, basename(catalog_file))
+      )
+      cli::cli_inform("SQLite catalog backed up successfully.")
+    } else {
+      cli::cli_warn("SQLite catalog file not found: {.path {catalog_file}}")
+    }
   } else {
-    warning("Catalog file not found: ", catalog_file)
+    # PostgreSQL or MySQL - catalog lives in a remote database
+    tool <- if (backend == "postgres") "pg_dump" else "mysqldump"
+    cli::cli_warn(c(
+      "Catalog backup is not included for the {.val {backend}} backend.",
+      "i" = "Use {.code {tool}} to backup the catalog database separately.",
+      "i" = "Only Parquet data files will be backed up."
+    ))
   }
   
   # Backup data directory
@@ -89,11 +119,11 @@ backup_ducklake <- function(ducklake_name, lake_path, backup_path) {
       path = main_dir,
       new_path = file.path(backup_dir, "main")
     )
-    message("Data files backed up successfully")
+    cli::cli_inform("Data files backed up successfully.")
   } else {
-    warning("Data directory not found: ", main_dir)
+    cli::cli_warn("Data directory not found: {.path {main_dir}}")
   }
   
-  message(sprintf("Backup completed: %s", backup_dir))
+  cli::cli_inform("Backup completed: {.path {backup_dir}}")
   invisible(backup_dir)
 }

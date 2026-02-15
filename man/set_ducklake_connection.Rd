@@ -4,10 +4,18 @@
 \alias{set_ducklake_connection}
 \title{Set the DuckLake connection}
 \usage{
-set_ducklake_connection(conn)
+set_ducklake_connection(
+  conn,
+  backend = "duckdb",
+  catalog_connection_string = NULL
+)
 }
 \arguments{
 \item{conn}{A DuckDB connection object}
+
+\item{backend}{The catalog backend type (e.g., "duckdb", "postgres", "sqlite", "mysql")}
+
+\item{catalog_connection_string}{The backend-specific connection string used for the catalog}
 }
 \description{
 Set the DuckLake connection

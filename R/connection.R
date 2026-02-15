@@ -1,4 +1,4 @@
-# Package environment to store the ducklake connection
+# Package environment to store the ducklake connection and backend metadata
 .ducklake_env <- new.env(parent = emptyenv())
 
 #' Get the current DuckLake connection
@@ -31,15 +31,49 @@ get_ducklake_connection <- function() {
 #' Set the DuckLake connection
 #'
 #' @param conn A DuckDB connection object
+#' @param backend The catalog backend type (e.g., "duckdb", "postgres", "sqlite", "mysql")
+#' @param catalog_connection_string The backend-specific connection string used for the catalog
 #' @keywords internal
-set_ducklake_connection <- function(conn) {
+set_ducklake_connection <- function(conn, backend = "duckdb",
+                                     catalog_connection_string = NULL) {
   .ducklake_env$connection <- conn
+  .ducklake_env$backend <- backend
+  .ducklake_env$catalog_connection_string <- catalog_connection_string
   invisible(conn)
+}
+
+#' Get the current catalog backend type
+#'
+#' Returns which catalog database backend is in use for the current DuckLake
+#' connection. Defaults to \code{"duckdb"} if no backend has been explicitly set.
+#'
+#' @return A character string: one of \code{"duckdb"}, \code{"postgres"},
+#'   \code{"sqlite"}, or \code{"mysql"}.
+#' @export
+get_ducklake_backend <- function() {
+  backend <- .ducklake_env$backend
+  if (is.null(backend)) "duckdb" else backend
+}
+
+#' Execute a SQL statement on the DuckLake connection
+#'
+#' A thin wrapper around \code{DBI::dbExecute()} that always uses the
+#' connection stored in the ducklake package environment. This ensures all
+#' SQL statements (ATTACH, USE, CREATE TABLE, BEGIN/COMMIT, etc.) are routed
+#' to the same DuckDB connection.
+#'
+#' @param sql A single SQL statement to execute
+#'
+#' @return The return value of \code{DBI::dbExecute()}, invisibly.
+#' @keywords internal
+ducklake_db_exec <- function(sql) {
+  conn <- get_ducklake_connection()
+  invisible(DBI::dbExecute(conn, sql))
 }
 
 #' Detach from a ducklake
 #'
-#' Closes the DuckDB connection and detaches from the current DuckLake.
+#' Detaches from the current DuckLake and closes the DuckDB connection.
 #'
 #' @param ducklake_name Optional name of the ducklake to detach. If not provided, closes the current connection.
 #'
@@ -76,6 +110,8 @@ detach_ducklake <- function(ducklake_name = NULL) {
       warning("Could not disconnect: ", e$message)
     })
     .ducklake_env$connection <- NULL
+    .ducklake_env$backend <- NULL
+    .ducklake_env$catalog_connection_string <- NULL
   }
   
   invisible(NULL)
