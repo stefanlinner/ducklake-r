@@ -19,17 +19,14 @@ test_that("storage-and-backups.Rmd workflow: backup and restore", {
   skip_if_not_installed("dplyr")
   skip_if_not_installed("fs")
 
-  # Use unique temp dirs so stale files from previous runs can't interfere
-  original_lake_dir <- tempfile("backup_test_original_")
-  backup_base_dir <- tempfile("backup_test_backups_")
+  # Create separate temp directories for original and backup
+  original_lake_dir <- file.path(tempdir(), "backup_test_original_first")
+  backup_base_dir <- file.path(tempdir(), "backup_test_backups_first")
   dir.create(original_lake_dir, showWarnings = FALSE, recursive = TRUE)
   dir.create(backup_base_dir, showWarnings = FALSE, recursive = TRUE)
 
   tryCatch({
-    # Use a dedicated connection for reliable cleanup across test runs
-    conn <- DBI::dbConnect(duckdb::duckdb())
-    set_ducklake_connection(conn)
-
+    # Set up ducklake in original location
     ducklake_name <- "backup_test_lake"
     attach_ducklake(ducklake_name, lake_path = original_lake_dir)
 
@@ -69,10 +66,9 @@ test_that("storage-and-backups.Rmd workflow: backup and restore", {
     # Detach original ducklake
     detach_ducklake(ducklake_name)
 
-    # Restore from backup; override_data_path = TRUE because the catalog
-    # still stores the original DATA_PATH
-    attach_ducklake(ducklake_name, lake_path = actual_backup_dir,
-                    override_data_path = TRUE)
+    # Restore from backup by attaching to backup location with SAME name (as shown in vignette)
+    # The catalog internally remembers it's called "backup_test_lake"
+    attach_ducklake(ducklake_name, lake_path = actual_backup_dir)
 
     # Verify the data is intact in the restored ducklake
     restored_data <- get_ducklake_table("iris_data") |> dplyr::collect()
@@ -88,13 +84,57 @@ test_that("storage-and-backups.Rmd workflow: backup and restore", {
     expect_equal(restored_snapshots$commit_message, original_snapshots$commit_message)
     expect_equal(restored_snapshots$author, original_snapshots$author)
 
+    # Clean up - detach the restored ducklake
     detach_ducklake(ducklake_name, shutdown = TRUE)
 
   }, finally = {
-    # Ensure shutdown even if test errors early
-    tryCatch(detach_ducklake(shutdown = TRUE), error = function(e) NULL)
     unlink(original_lake_dir, recursive = TRUE)
     unlink(backup_base_dir, recursive = TRUE)
+  })
+})
+
+test_that("backup catalog file is non-empty (singleton connection)", {
+  skip_if_not_installed("duckdb")
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("fs")
+
+  lake_dir <- file.path(tempdir(), "singleton_backup_test")
+  backup_base <- file.path(tempdir(), "singleton_backup_dest")
+  dir.create(lake_dir, showWarnings = FALSE, recursive = TRUE)
+  dir.create(backup_base, showWarnings = FALSE, recursive = TRUE)
+
+  tryCatch({
+    ducklake_name <- "singleton_backup_lake"
+    attach_ducklake(ducklake_name, lake_path = lake_dir)
+
+    with_transaction(
+      create_table(mtcars, "cars"),
+      author = "Test",
+      commit_message = "init"
+    )
+
+    actual_backup_dir <- backup_ducklake(
+      ducklake_name = ducklake_name,
+      lake_path = lake_dir,
+      backup_path = backup_base
+    )
+
+    # Catalog file must exist and be non-empty (was 0 bytes before the fix)
+    catalog_backup <- file.path(actual_backup_dir,
+                                paste0(ducklake_name, ".ducklake"))
+    expect_true(file.exists(catalog_backup))
+    expect_true(file.size(catalog_backup) > 0)
+
+    # Connection should still work after backup
+    result <- get_ducklake_table("cars") |> dplyr::collect()
+    expect_equal(nrow(result), nrow(mtcars))
+
+    detach_ducklake(ducklake_name)
+
+  }, finally = {
+    tryCatch(detach_ducklake(shutdown = TRUE), error = function(e) NULL)
+    unlink(lake_dir, recursive = TRUE)
+    unlink(backup_base, recursive = TRUE)
   })
 })
 

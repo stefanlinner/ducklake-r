@@ -130,9 +130,8 @@ attach_ducklake <- function(ducklake_name, lake_path = NULL,
     set_ducklake_connection(conn, backend = backend,
                             catalog_connection_string = catalog_connection_string)
   } else {
-    # Update backend metadata only; don't store the connection reference.
-    # If this is duckplyr's fallback singleton we must not own it, otherwise
-    # detach_ducklake(shutdown = TRUE) would kill duckplyr's shared connection.
+    # Don't store the connection -- it may be duckplyr's singleton which
+    # we must not own. Just update the backend metadata.
     .ducklake_env$backend <- backend
     .ducklake_env$catalog_connection_string <- catalog_connection_string
   }

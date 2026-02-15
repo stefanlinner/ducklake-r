@@ -8,8 +8,8 @@ get_ducklake_backend()
 }
 \value{
 One of \code{"duckdb"}, \code{"postgres"}, \code{"sqlite"}, or \code{"mysql"}.
+Defaults to \code{"duckdb"} when no backend has been set.
 }
 \description{
-Returns which catalog backend is in use. Defaults to \code{"duckdb"} when no
-backend has been set.
+Get the current catalog backend type
 }

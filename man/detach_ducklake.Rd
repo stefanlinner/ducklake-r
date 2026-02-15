@@ -12,9 +12,8 @@ detach_ducklake(ducklake_name = NULL, shutdown = FALSE)
 \item{shutdown}{If \code{TRUE}, shut down the DuckDB connection after detaching.}
 }
 \description{
-By default performs a soft detach: the DuckLake database is removed but the
-DuckDB process stays alive, so you can attach a different lake in the same
-session. Use \code{shutdown = TRUE} to fully close the connection and release
+Detaches the DuckLake database but keeps the DuckDB connection alive by
+default. Use \code{shutdown = TRUE} to also close the connection and release
 file locks.
 }
 \examples{

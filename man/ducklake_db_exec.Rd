@@ -13,7 +13,6 @@ ducklake_db_exec(sql)
 The number of rows affected, invisibly.
 }
 \description{
-Thin wrapper around \code{\link[DBI:dbExecute]{DBI::dbExecute()}} that routes through
-\code{\link[=get_ducklake_connection]{get_ducklake_connection()}}.
+Execute SQL on the DuckLake connection
 }
 \keyword{internal}

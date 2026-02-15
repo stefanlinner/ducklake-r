@@ -31,8 +31,8 @@ get_ducklake_connection <- function() {
 #' Set the DuckLake connection
 #'
 #' @param conn A DuckDB connection object
-#' @param backend Catalog backend type (e.g. `"duckdb"`, `"postgres"`, `"sqlite"`, `"mysql"`)
-#' @param catalog_connection_string Backend-specific connection string for the catalog
+#' @param backend Catalog backend type
+#' @param catalog_connection_string Connection string for the catalog database
 #' @keywords internal
 set_ducklake_connection <- function(conn, backend = "duckdb",
                                      catalog_connection_string = NULL) {
@@ -44,10 +44,8 @@ set_ducklake_connection <- function(conn, backend = "duckdb",
 
 #' Get the current catalog backend type
 #'
-#' Returns which catalog backend is in use. Defaults to `"duckdb"` when no
-#' backend has been set.
-#'
 #' @returns One of `"duckdb"`, `"postgres"`, `"sqlite"`, or `"mysql"`.
+#'   Defaults to `"duckdb"` when no backend has been set.
 #' @export
 get_ducklake_backend <- function() {
   backend <- .ducklake_env$backend
@@ -56,11 +54,7 @@ get_ducklake_backend <- function() {
 
 #' Execute SQL on the DuckLake connection
 #'
-#' Thin wrapper around [DBI::dbExecute()] that routes through
-#' [get_ducklake_connection()].
-#'
 #' @param sql SQL statement to execute
-#'
 #' @returns The number of rows affected, invisibly.
 #' @keywords internal
 ducklake_db_exec <- function(sql) {
@@ -70,9 +64,8 @@ ducklake_db_exec <- function(sql) {
 
 #' Detach from a ducklake
 #'
-#' By default performs a soft detach: the DuckLake database is removed but the
-#' DuckDB process stays alive, so you can attach a different lake in the same
-#' session. Use `shutdown = TRUE` to fully close the connection and release
+#' Detaches the DuckLake database but keeps the DuckDB connection alive by
+#' default. Use `shutdown = TRUE` to also close the connection and release
 #' file locks.
 #'
 #' @param ducklake_name Optional name of the ducklake to detach.
@@ -111,20 +104,21 @@ detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
       tryCatch(DBI::dbExecute(conn, "USE memory;"), error = function(e) NULL)
     }
     
-    # Only shut down if we own the connection. duckplyr's singleton
-    # (used when .ducklake_env$connection is NULL) can't recover from
-    # dbDisconnect and must not be killed.
-    if (shutdown && !is.null(.ducklake_env$connection)) {
-      tryCatch({
-        DBI::dbDisconnect(conn, shutdown = TRUE)
-      }, error = function(e) {
-        warning("Could not disconnect: ", e$message)
-      })
-      
-      # gc() finalizes DuckDB objects so file locks are released immediately
-      # (on Windows, DuckDB holds exclusive locks until the R finalizer runs)
-      gc()
-      .ducklake_env$connection <- NULL
+    if (shutdown) {
+      if (!is.null(.ducklake_env$connection)) {
+        # We own this connection, shut it down
+        tryCatch({
+          DBI::dbDisconnect(conn, shutdown = TRUE)
+        }, error = function(e) {
+          warning("Could not disconnect: ", e$message)
+        })
+        gc()
+        .ducklake_env$connection <- NULL
+      } else {
+        # Running on duckplyr's singleton -- shut it down to release
+        # file locks and immediately recreate it
+        shutdown_and_reset_singleton()
+      }
     }
   }
   
@@ -132,4 +126,44 @@ detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
   .ducklake_env$catalog_connection_string <- NULL
   
   invisible(NULL)
+}
+
+#' Shut down duckplyr's singleton connection and recreate it
+#'
+#' Shuts down the singleton DuckDB connection to release file locks, then
+#' recreates it so the session keeps working. The new connection gets the
+#' same macro/R-function setup that duckplyr normally does on first access.
+#'
+#' We replace `$con` directly instead of setting it to NULL because duckplyr
+#' stacks `reg.finalizer(onexit = TRUE)` calls that accumulate across resets.
+#' If `$con` is NULL when those finalizers fire at session exit, each one
+#' calls `dbDisconnect(NULL)` and errors. Keeping a valid connection avoids
+#' that.
+#'
+#' @note This accesses duckplyr internals (`default_duckdb_connection` and
+#'   `create_default_duckdb_connection`). Validated against duckplyr 0.4.1.
+#'   If duckplyr changes these internals the function returns `FALSE` and the
+#'   caller falls back to the warning path.
+#'
+#' @returns `TRUE` on success, `FALSE` on failure.
+#' @keywords internal
+shutdown_and_reset_singleton <- function() {
+  if (!is.null(.ducklake_env$connection)) return(FALSE)
+
+  tryCatch({
+    ddc  <- duckplyr:::default_duckdb_connection
+    conn <- ddc$con
+
+    if (!is.null(conn)) {
+      DBI::dbDisconnect(conn, shutdown = TRUE)
+      gc()
+
+      # Immediately recreate so ddc$con stays valid (see note above)
+      ddc$con <- duckplyr:::create_default_duckdb_connection()
+    }
+    TRUE
+  }, error = function(e) {
+    warning("Could not reset duckplyr singleton: ", e$message)
+    FALSE
+  })
 }
