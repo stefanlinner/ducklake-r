@@ -86,8 +86,8 @@ test_that("storage-and-backups.Rmd workflow: backup and restore", {
     expect_equal(restored_snapshots$commit_message, original_snapshots$commit_message)
     expect_equal(restored_snapshots$author, original_snapshots$author)
 
-    # Clean up - detach the restored ducklake
-    detach_ducklake(ducklake_name)
+    # Clean up - fully shut down so file locks are released before unlink
+    detach_ducklake(ducklake_name, shutdown = TRUE)
 
   }, finally = {
     # Clean up directories

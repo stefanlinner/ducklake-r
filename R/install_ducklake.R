@@ -10,6 +10,11 @@
 #'   \code{"postgres"}, \code{"sqlite"}, and/or \code{"mysql"}. Default installs
 #'   only the ducklake extension.
 #'
+#' @note On Windows, the \code{"postgres"} and \code{"mysql"} extensions are not
+#'   available for the R \code{duckdb} package (MinGW toolchain). Attempting to
+#'   install them will fail. See the \emph{Windows Limitation} section in
+#'   \code{\link{attach_ducklake}} for details.
+#'
 #' @returns NULL
 #' @export
 #'

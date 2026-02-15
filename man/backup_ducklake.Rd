@@ -31,6 +31,10 @@ is file-based (DuckDB or SQLite)
 \item Copying all Parquet data files from the main/ directory
 }
 
+For file-based backends (DuckDB, SQLite), the DuckLake is temporarily detached
+during backup to ensure a consistent catalog copy. It is automatically
+re-attached after the backup completes.
+
 For remote catalog backends (PostgreSQL, MySQL), only the Parquet data files
 are backed up. The catalog database must be backed up separately using the
 database's own backup tools (e.g., \code{pg_dump} for PostgreSQL,
@@ -68,8 +72,8 @@ backup_dir <- backup_ducklake(
   backup_path = file.path(lake_dir, "backups")
 )
 
-# To restore from backup:
+# To restore from backup (override_data_path needed if location differs):
 # detach_ducklake("my_lake")
-# attach_ducklake("my_lake", lake_path = backup_dir)
+# attach_ducklake("my_lake", lake_path = backup_dir, override_data_path = TRUE)
 }
 }

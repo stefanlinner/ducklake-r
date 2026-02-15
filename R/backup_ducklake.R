@@ -84,14 +84,13 @@ backup_ducklake <- function(ducklake_name, lake_path, backup_path) {
 
   # Backup catalog for file-based backends.
   # DuckDB's R bindings hold exclusive file locks on database files. To get a
-  # consistent copy we must fully shut down the connection and run gc() so R
-  # finalises the DuckDB objects and releases the OS file handles. The lake is
-  # automatically re-attached after the copy.
+  # consistent copy we must fully shut down the connection (detach_ducklake with
+  # shutdown = TRUE automatically calls gc() to finalize objects and release
+  # file handles). The lake is automatically re-attached after the copy.
   if (backend == "duckdb") {
     catalog_file <- file.path(lake_path, paste0(ducklake_name, ".ducklake"))
     if (file.exists(catalog_file)) {
       detach_ducklake(ducklake_name, shutdown = TRUE)
-      gc()
 
       copy_ok <- file.copy(
         from = catalog_file,
@@ -112,7 +111,6 @@ backup_ducklake <- function(ducklake_name, lake_path, backup_path) {
     catalog_file <- .ducklake_env$catalog_connection_string
     if (!is.null(catalog_file) && file.exists(catalog_file)) {
       detach_ducklake(ducklake_name, shutdown = TRUE)
-      gc()
 
       file.copy(
         from = catalog_file,

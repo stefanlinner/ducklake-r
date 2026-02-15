@@ -61,6 +61,21 @@
 #'
 #' See \url{https://duckdb.org/docs/stable/configuration/secrets_manager} for details.
 #'
+#' @section Windows Limitation:
+#' The PostgreSQL and MySQL backends require the corresponding DuckDB extensions
+#' (\code{postgres} and \code{mysql}), which are \strong{not available on Windows}
+#' when using R. This is because the R \code{duckdb} package is built with the
+#' MinGW toolchain (platform \code{windows_amd64_mingw}), and DuckDB does not
+#' distribute the \code{postgres} or \code{mysql} extensions for this platform.
+#' There is no known workaround for R on Windows.
+#'
+#' The \code{sqlite} and \code{duckdb} backends work on all platforms.
+#'
+#' To use PostgreSQL or MySQL backends, run R on Linux or macOS, or use
+#' Windows Subsystem for Linux (WSL).
+#'
+#' See \url{https://github.com/duckdb/duckdb/issues/7892} for details.
+#'
 #' @returns NULL
 #' @export
 #'

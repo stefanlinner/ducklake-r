@@ -139,6 +139,11 @@ detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
       }, error = function(e) {
         warning("Could not disconnect: ", e$message)
       })
+      
+      # Force garbage collection to finalize DuckDB objects and release file locks.
+      # This is necessary on Windows where DuckDB holds exclusive file locks that
+      # aren't released until the R connection object's finalizer runs.
+      gc()
     }
   }
   

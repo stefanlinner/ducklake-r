@@ -18,6 +18,12 @@ Installs the ducklake DuckDB extension and optionally the extensions required
 for alternative catalog backends (postgres, sqlite, mysql). This only needs to
 be run once on your system per DuckDB version.
 }
+\note{
+On Windows, the \code{"postgres"} and \code{"mysql"} extensions are not
+available for the R \code{duckdb} package (MinGW toolchain). Attempting to
+install them will fail. See the \emph{Windows Limitation} section in
+\code{\link{attach_ducklake}} for details.
+}
 \examples{
 \dontrun{
 # Install ducklake only (default)

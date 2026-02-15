@@ -9,7 +9,8 @@ build_attach_sql(
   lake_path,
   backend,
   catalog_connection_string,
-  read_only
+  read_only,
+  override_data_path = FALSE
 )
 }
 \arguments{

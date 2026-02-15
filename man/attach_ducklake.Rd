@@ -9,7 +9,8 @@ attach_ducklake(
   lake_path = NULL,
   backend = c("duckdb", "postgres", "sqlite", "mysql"),
   catalog_connection_string = NULL,
-  read_only = FALSE
+  read_only = FALSE,
+  override_data_path = FALSE
 )
 }
 \arguments{
@@ -39,6 +40,10 @@ The target database must already exist in MySQL.}
 }}
 
 \item{read_only}{Logical. Whether to attach in read-only mode (default \code{FALSE}).}
+
+\item{override_data_path}{Logical. Whether to override the stored DATA_PATH in the
+catalog (default \code{FALSE}). Set to \code{TRUE} when restoring from a backup
+where the data files have been moved to a different location than the original.}
 }
 \description{
 This function is a wrapper for the ducklake \href{https://ducklake.select/docs/stable/duckdb/usage/connecting}{ATTACH} command.
@@ -77,6 +82,23 @@ fill in the missing values from the secret. Persistent secrets (using
 \code{CREATE PERSISTENT SECRET}) survive across sessions.
 
 See \url{https://duckdb.org/docs/stable/configuration/secrets_manager} for details.
+}
+
+\section{Windows Limitation}{
+
+The PostgreSQL and MySQL backends require the corresponding DuckDB extensions
+(\code{postgres} and \code{mysql}), which are \strong{not available on Windows}
+when using R. This is because the R \code{duckdb} package is built with the
+MinGW toolchain (platform \code{windows_amd64_mingw}), and DuckDB does not
+distribute the \code{postgres} or \code{mysql} extensions for this platform.
+There is no known workaround for R on Windows.
+
+The \code{sqlite} and \code{duckdb} backends work on all platforms.
+
+To use PostgreSQL or MySQL backends, run R on Linux or macOS, or use
+Windows Subsystem for Linux (WSL).
+
+See \url{https://github.com/duckdb/duckdb/issues/7892} for details.
 }
 
 \examples{

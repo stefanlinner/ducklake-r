@@ -4,18 +4,43 @@
 \alias{detach_ducklake}
 \title{Detach from a ducklake}
 \usage{
-detach_ducklake(ducklake_name = NULL)
+detach_ducklake(ducklake_name = NULL, shutdown = FALSE)
 }
 \arguments{
-\item{ducklake_name}{Optional name of the ducklake to detach. If not provided, closes the current connection.}
+\item{ducklake_name}{Optional name of the ducklake to detach. If not provided,
+only cleans up the package metadata.}
+
+\item{shutdown}{Logical. If \code{TRUE}, fully shuts down the DuckDB connection
+after detaching. Defaults to \code{FALSE}.}
 }
 \description{
-Detaches from the current DuckLake and closes the DuckDB connection.
+Detaches from the current DuckLake. By default, this performs a "soft detach":
+the DuckLake databases are removed from the DuckDB connection, but the
+underlying DuckDB process stays alive. This allows attaching a different
+DuckLake (potentially with a different backend) in the same session without
+losing the connection.
+}
+\details{
+Set \code{shutdown = TRUE} to fully shut down the DuckDB connection, which
+frees all memory and releases any file locks. This is equivalent to the
+previous default behavior.
+}
+\note{
+Both soft and hard detach clear the stored backend metadata
+(\code{backend}, \code{catalog_connection_string}). After a soft detach,
+\code{get_ducklake_backend()} will return \code{"duckdb"} (the default)
+until a new lake is attached.
 }
 \examples{
 \dontrun{
 attach_ducklake("my_ducklake")
 # ... do work ...
 detach_ducklake("my_ducklake")
+
+# Attach a different ducklake in the same session
+attach_ducklake("other_lake", backend = "sqlite", ...)
+
+# Full shutdown when completely done
+detach_ducklake("other_lake", shutdown = TRUE)
 }
 }
