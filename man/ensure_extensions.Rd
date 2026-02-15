@@ -2,14 +2,14 @@
 % Please edit documentation in R/attach_ducklake.R
 \name{ensure_extensions}
 \alias{ensure_extensions}
-\title{Ensure required DuckDB extensions are installed and loaded}
+\title{Install and load required DuckDB extensions for a given backend}
 \usage{
 ensure_extensions(backend)
 }
 \arguments{
-\item{backend}{The catalog backend type}
+\item{backend}{Catalog backend type}
 }
 \description{
-Ensure required DuckDB extensions are installed and loaded
+Install and load required DuckDB extensions for a given backend
 }
 \keyword{internal}

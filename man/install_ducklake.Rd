@@ -7,32 +7,23 @@
 install_ducklake(backend = NULL)
 }
 \arguments{
-\item{backend}{Character vector of backends to install extensions for. The
-\code{"ducklake"} extension is always installed. Additional values install
-the corresponding DuckDB extension needed for that catalog backend:
-\code{"postgres"}, \code{"sqlite"}, and/or \code{"mysql"}. Default installs
-only the ducklake extension.}
+\item{backend}{Optional character vector of backends to install. The ducklake
+extension is always installed. Pass \code{"postgres"}, \code{"sqlite"}, and/or
+\code{"mysql"} to install the corresponding backend extensions.}
 }
 \description{
-Installs the ducklake DuckDB extension and optionally the extensions required
-for alternative catalog backends (postgres, sqlite, mysql). This only needs to
-be run once on your system per DuckDB version.
+Installs the ducklake DuckDB extension and optionally the extensions for
+alternative catalog backends (postgres, sqlite, mysql). Only needs to be
+run once per DuckDB version.
 }
 \note{
-On Windows, the \code{"postgres"} and \code{"mysql"} extensions are not
-available for the R \code{duckdb} package (MinGW toolchain). Attempting to
-install them will fail. See the \emph{Windows Limitation} section in
-\code{\link{attach_ducklake}} for details.
+On Windows the \code{postgres} and \code{mysql} extensions are not available
+(MinGW toolchain). See \code{\link[=attach_ducklake]{attach_ducklake()}} for details.
 }
 \examples{
 \dontrun{
-# Install ducklake only (default)
 install_ducklake()
-
-# Install ducklake + postgres extension
 install_ducklake(backend = "postgres")
-
-# Install all supported backend extensions at once
 install_ducklake(backend = c("postgres", "sqlite", "mysql"))
 }
 }

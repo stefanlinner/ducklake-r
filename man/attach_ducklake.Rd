@@ -16,56 +16,41 @@ attach_ducklake(
 \arguments{
 \item{ducklake_name}{Name for the ducklake, used as the database alias in DuckDB}
 
-\item{lake_path}{Optional directory path for the ducklake. For the default
-\code{"duckdb"} backend, this is where the catalog database file and Parquet
-data files will be stored. For other backends, this specifies the storage
-location for Parquet data files (corresponding to DuckLake's \code{DATA_PATH}
-parameter).}
+\item{lake_path}{Optional directory path. For \code{"duckdb"} this is where the
+catalog file and Parquet data live. For other backends this sets the
+Parquet data location (DuckLake's \code{DATA_PATH}).}
 
-\item{backend}{Catalog database backend to use. One of \code{"duckdb"} (default),
-\code{"postgres"}, \code{"sqlite"}, or \code{"mysql"}. Non-DuckDB backends
-allow multiple clients to access the DuckLake concurrently.}
+\item{backend}{Catalog backend: \code{"duckdb"} (default), \code{"postgres"},
+\code{"sqlite"}, or \code{"mysql"}.}
 
-\item{catalog_connection_string}{Backend-specific connection string for the
-catalog database. Interpretation depends on \code{backend}:
+\item{catalog_connection_string}{Backend-specific connection string:
 \describe{
-\item{\code{"duckdb"}}{Not required. Defaults to \code{"{ducklake_name}.ducklake"}.}
-\item{\code{"postgres"}}{A libpq connection string, e.g.,
-\code{"dbname=ducklake_catalog host=localhost port=5432 user=analyst"}.
-The target database must already exist in PostgreSQL.}
-\item{\code{"sqlite"}}{Path to the SQLite file, e.g., \code{"metadata.sqlite"}.}
-\item{\code{"mysql"}}{A MySQL connection string, e.g.,
-\code{"db=ducklake_catalog host=localhost user=analyst"}.
-The target database must already exist in MySQL.}
+\item{\code{"duckdb"}}{Not required. Defaults to \verb{\{ducklake_name\}.ducklake}.}
+\item{\code{"postgres"}}{libpq string, e.g. \code{"dbname=mydb host=localhost"}.}
+\item{\code{"sqlite"}}{Path to the SQLite file, e.g. \code{"metadata.sqlite"}.}
+\item{\code{"mysql"}}{MySQL connection string, e.g. \code{"db=mydb host=localhost"}.}
 }}
 
-\item{read_only}{Logical. Whether to attach in read-only mode (default \code{FALSE}).}
+\item{read_only}{Attach in read-only mode (default \code{FALSE}).}
 
-\item{override_data_path}{Logical. Whether to override the stored DATA_PATH in the
-catalog (default \code{FALSE}). Set to \code{TRUE} when restoring from a backup
-where the data files have been moved to a different location than the original.}
+\item{override_data_path}{Override the stored DATA_PATH in the catalog
+(default \code{FALSE}). Needed when restoring a backup to a different location.}
 }
 \description{
-This function is a wrapper for the ducklake \href{https://ducklake.select/docs/stable/duckdb/usage/connecting}{ATTACH} command.
-It will create a new DuckLake if the specified name does not exist, or connect to
-the existing DuckLake if it does exist. The connection is stored in the package
-environment and can be closed with \code{detach_ducklake()}.
+Wrapper for the ducklake \href{https://ducklake.select/docs/stable/duckdb/usage/connecting}{ATTACH} command.
+Creates a new DuckLake if the specified name does not exist, or connects to
+an existing one. The connection is stored in the package environment and can
+be closed with \code{\link[=detach_ducklake]{detach_ducklake()}}.
 }
 \details{
-By default, DuckDB is used as the catalog database. Alternative catalog backends
-(PostgreSQL, SQLite, MySQL) can be selected via the \code{backend} parameter.
-Using an external catalog backend enables multiple clients to read and write to
-the same DuckLake concurrently, which is not possible with the DuckDB backend.
+By default DuckDB is used as the catalog database. Alternative backends
+(PostgreSQL, SQLite, MySQL) can be selected with the \code{backend} parameter,
+which enables concurrent multi-client access.
+See \url{https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database}.
 
-See \url{https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database}
-for guidance on choosing a catalog backend.
-}
-\section{Credential Management}{
-
-For secure credential management with PostgreSQL or MySQL backends, consider
-using DuckDB's built-in secrets manager instead of embedding credentials in the
-connection string. Secrets can be created via \code{DBI::dbExecute()} on the
-DuckLake connection before calling \code{attach_ducklake()}:
+For credential management with PostgreSQL or MySQL, consider DuckDB's
+built-in secrets manager instead of embedding credentials in the connection
+string:
 
 \preformatted{conn <- get_ducklake_connection()
 DBI::dbExecute(conn, "CREATE SECRET (
@@ -77,39 +62,22 @@ DBI::dbExecute(conn, "CREATE SECRET (
     PASSWORD 'secret'
 )")}
 
-Then pass an empty or partial \code{catalog_connection_string} — DuckDB will
-fill in the missing values from the secret. Persistent secrets (using
-\code{CREATE PERSISTENT SECRET}) survive across sessions.
+Then pass an empty or partial \code{catalog_connection_string}; DuckDB fills in
+the rest from the secret. See
+\url{https://duckdb.org/docs/stable/configuration/secrets_manager}.
 
-See \url{https://duckdb.org/docs/stable/configuration/secrets_manager} for details.
+\strong{Windows limitation:} The \code{postgres} and \code{mysql} DuckDB extensions are not
+available on Windows (MinGW toolchain). Only \code{duckdb} and \code{sqlite} backends
+work there. Use Linux, macOS, or WSL for PostgreSQL/MySQL backends.
+See \url{https://github.com/duckdb/duckdb/issues/7892}.
 }
-
-\section{Windows Limitation}{
-
-The PostgreSQL and MySQL backends require the corresponding DuckDB extensions
-(\code{postgres} and \code{mysql}), which are \strong{not available on Windows}
-when using R. This is because the R \code{duckdb} package is built with the
-MinGW toolchain (platform \code{windows_amd64_mingw}), and DuckDB does not
-distribute the \code{postgres} or \code{mysql} extensions for this platform.
-There is no known workaround for R on Windows.
-
-The \code{sqlite} and \code{duckdb} backends work on all platforms.
-
-To use PostgreSQL or MySQL backends, run R on Linux or macOS, or use
-Windows Subsystem for Linux (WSL).
-
-See \url{https://github.com/duckdb/duckdb/issues/7892} for details.
-}
-
 \examples{
 \dontrun{
-# Default: DuckDB catalog (single-client)
+# DuckDB catalog (default)
 attach_ducklake("my_lake")
-
-# DuckDB catalog with custom data path
 attach_ducklake("my_lake", lake_path = "~/data/lake")
 
-# PostgreSQL catalog (multi-client)
+# PostgreSQL catalog
 attach_ducklake(
   "my_lake",
   backend = "postgres",
@@ -117,7 +85,7 @@ attach_ducklake(
   lake_path = "/shared/lake/data/"
 )
 
-# SQLite catalog (multi-process local)
+# SQLite catalog
 attach_ducklake(
   "my_lake",
   backend = "sqlite",
@@ -125,7 +93,7 @@ attach_ducklake(
   lake_path = "data_files/"
 )
 
-# MySQL catalog (multi-client)
+# MySQL catalog
 attach_ducklake(
   "my_lake",
   backend = "mysql",
@@ -135,6 +103,5 @@ attach_ducklake(
 }
 }
 \seealso{
-\code{\link[=detach_ducklake]{detach_ducklake()}} to close the connection, \code{\link[=install_ducklake]{install_ducklake()}} to
-install required DuckDB extensions
+\code{\link[=detach_ducklake]{detach_ducklake()}}, \code{\link[=install_ducklake]{install_ducklake()}}
 }

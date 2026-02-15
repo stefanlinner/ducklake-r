@@ -2,7 +2,7 @@
 % Please edit documentation in R/attach_ducklake.R
 \name{build_attach_sql}
 \alias{build_attach_sql}
-\title{Build the ATTACH SQL statement for a DuckLake}
+\title{Build the ATTACH SQL for a DuckLake}
 \usage{
 build_attach_sql(
   ducklake_name,
@@ -23,11 +23,13 @@ build_attach_sql(
 \item{catalog_connection_string}{Backend-specific connection string}
 
 \item{read_only}{Whether to attach in read-only mode}
+
+\item{override_data_path}{Whether to add OVERRIDE_DATA_PATH TRUE}
 }
 \value{
 A SQL ATTACH statement string
 }
 \description{
-Build the ATTACH SQL statement for a DuckLake
+Build the ATTACH SQL for a DuckLake
 }
 \keyword{internal}

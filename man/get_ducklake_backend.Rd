@@ -7,10 +7,9 @@
 get_ducklake_backend()
 }
 \value{
-A character string: one of \code{"duckdb"}, \code{"postgres"},
-\code{"sqlite"}, or \code{"mysql"}.
+One of \code{"duckdb"}, \code{"postgres"}, \code{"sqlite"}, or \code{"mysql"}.
 }
 \description{
-Returns which catalog database backend is in use for the current DuckLake
-connection. Defaults to \code{"duckdb"} if no backend has been explicitly set.
+Returns which catalog backend is in use. Defaults to \code{"duckdb"} when no
+backend has been set.
 }

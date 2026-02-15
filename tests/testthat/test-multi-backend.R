@@ -1,9 +1,5 @@
-# Tests for multi-backend catalog support
-#
-# These tests verify the new backend parameter and related functionality
-# added to support PostgreSQL, SQLite, and MySQL as catalog backends.
-# Only DuckDB and SQLite backends are tested here since they require no
-# external infrastructure.
+# Multi-backend catalog support
+# Only DuckDB and SQLite backends are tested since they need no external infra.
 
 # --- Input validation ---
 
@@ -149,7 +145,7 @@ test_that("build_attach_sql includes OVERRIDE_DATA_PATH when requested", {
   expect_true(grepl("OVERRIDE_DATA_PATH TRUE", sql, fixed = TRUE))
   expect_true(grepl("DATA_PATH", sql))
 
-  # Default: not included
+  # Not included by default
   sql2 <- ducklake:::build_attach_sql("my_lake", "/data", "duckdb", NULL, FALSE)
   expect_false(grepl("OVERRIDE_DATA_PATH", sql2))
 })
@@ -188,14 +184,12 @@ test_that("SQLite backend: create table, query, and time travel", {
       expect_equal(nrow(result), 32)
       expect_true("mpg" %in% names(result))
 
-      # Verify SQLite catalog file was created
       expect_true(file.exists(sqlite_catalog))
 
-      # Verify snapshots work
       snapshots <- list_table_snapshots("cars")
       expect_equal(nrow(snapshots), 1)
 
-      # Replace table and verify second snapshot
+      # Replace table and check second snapshot
       with_transaction(
         {
           get_ducklake_table("cars") |>
@@ -212,13 +206,12 @@ test_that("SQLite backend: create table, query, and time travel", {
       snapshots2 <- list_table_snapshots("cars")
       expect_equal(nrow(snapshots2), 2)
 
-      # Time travel: version 1 should not have kpl column
+      # Time travel: version 1 should not have kpl
       v1 <- get_ducklake_table_version("cars", snapshots2$snapshot_id[1]) |>
         dplyr::collect()
       expect_false("kpl" %in% names(v1))
 
-      # Use shutdown = TRUE to fully reset DuckDB state after the SQLite test,
-      # preventing the SQLite catalog path from leaking into subsequent tests
+      # Full shutdown so SQLite state doesn't leak into other tests
       detach_ducklake("test_sqlite_backend", shutdown = TRUE)
     },
     finally = {

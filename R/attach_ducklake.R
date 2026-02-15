@@ -1,49 +1,36 @@
 #' Create or attach a ducklake
 #'
-#' This function is a wrapper for the ducklake [ATTACH](https://ducklake.select/docs/stable/duckdb/usage/connecting) command.
-#' It will create a new DuckLake if the specified name does not exist, or connect to
-#' the existing DuckLake if it does exist. The connection is stored in the package
-#' environment and can be closed with \code{detach_ducklake()}.
+#' Wrapper for the ducklake [ATTACH](https://ducklake.select/docs/stable/duckdb/usage/connecting) command.
+#' Creates a new DuckLake if the specified name does not exist, or connects to
+#' an existing one. The connection is stored in the package environment and can
+#' be closed with [detach_ducklake()].
 #'
-#' By default, DuckDB is used as the catalog database. Alternative catalog backends
-#' (PostgreSQL, SQLite, MySQL) can be selected via the \code{backend} parameter.
-#' Using an external catalog backend enables multiple clients to read and write to
-#' the same DuckLake concurrently, which is not possible with the DuckDB backend.
-#'
-#' See \url{https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database}
-#' for guidance on choosing a catalog backend.
+#' By default DuckDB is used as the catalog database. Alternative backends
+#' (PostgreSQL, SQLite, MySQL) can be selected with the `backend` parameter,
+#' which enables concurrent multi-client access.
+#' See \url{https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database}.
 #'
 #' @param ducklake_name Name for the ducklake, used as the database alias in DuckDB
-#' @param lake_path Optional directory path for the ducklake. For the default
-#'   \code{"duckdb"} backend, this is where the catalog database file and Parquet
-#'   data files will be stored. For other backends, this specifies the storage
-#'   location for Parquet data files (corresponding to DuckLake's \code{DATA_PATH}
-#'   parameter).
-#' @param backend Catalog database backend to use. One of \code{"duckdb"} (default),
-#'   \code{"postgres"}, \code{"sqlite"}, or \code{"mysql"}. Non-DuckDB backends
-#'   allow multiple clients to access the DuckLake concurrently.
-#' @param catalog_connection_string Backend-specific connection string for the
-#'   catalog database. Interpretation depends on \code{backend}:
+#' @param lake_path Optional directory path. For `"duckdb"` this is where the
+#'   catalog file and Parquet data live. For other backends this sets the
+#'   Parquet data location (DuckLake's `DATA_PATH`).
+#' @param backend Catalog backend: `"duckdb"` (default), `"postgres"`,
+#'   `"sqlite"`, or `"mysql"`.
+#' @param catalog_connection_string Backend-specific connection string:
 #'   \describe{
-#'     \item{\code{"duckdb"}}{Not required. Defaults to \code{"{ducklake_name}.ducklake"}.}
-#'     \item{\code{"postgres"}}{A libpq connection string, e.g.,
-#'       \code{"dbname=ducklake_catalog host=localhost port=5432 user=analyst"}.
-#'       The target database must already exist in PostgreSQL.}
-#'     \item{\code{"sqlite"}}{Path to the SQLite file, e.g., \code{"metadata.sqlite"}.}
-#'     \item{\code{"mysql"}}{A MySQL connection string, e.g.,
-#'       \code{"db=ducklake_catalog host=localhost user=analyst"}.
-#'       The target database must already exist in MySQL.}
+#'     \item{`"duckdb"`}{Not required. Defaults to `{ducklake_name}.ducklake`.}
+#'     \item{`"postgres"`}{libpq string, e.g. `"dbname=mydb host=localhost"`.}
+#'     \item{`"sqlite"`}{Path to the SQLite file, e.g. `"metadata.sqlite"`.}
+#'     \item{`"mysql"`}{MySQL connection string, e.g. `"db=mydb host=localhost"`.}
 #'   }
-#' @param read_only Logical. Whether to attach in read-only mode (default \code{FALSE}).
-#' @param override_data_path Logical. Whether to override the stored DATA_PATH in the
-#'   catalog (default \code{FALSE}). Set to \code{TRUE} when restoring from a backup
-#'   where the data files have been moved to a different location than the original.
+#' @param read_only Attach in read-only mode (default `FALSE`).
+#' @param override_data_path Override the stored DATA_PATH in the catalog
+#'   (default `FALSE`). Needed when restoring a backup to a different location.
 #'
-#' @section Credential Management:
-#' For secure credential management with PostgreSQL or MySQL backends, consider
-#' using DuckDB's built-in secrets manager instead of embedding credentials in the
-#' connection string. Secrets can be created via \code{DBI::dbExecute()} on the
-#' DuckLake connection before calling \code{attach_ducklake()}:
+#' @details
+#' For credential management with PostgreSQL or MySQL, consider DuckDB's
+#' built-in secrets manager instead of embedding credentials in the connection
+#' string:
 #'
 #' \preformatted{conn <- get_ducklake_connection()
 #' DBI::dbExecute(conn, "CREATE SECRET (
@@ -55,42 +42,27 @@
 #'     PASSWORD 'secret'
 #' )")}
 #'
-#' Then pass an empty or partial \code{catalog_connection_string} — DuckDB will
-#' fill in the missing values from the secret. Persistent secrets (using
-#' \code{CREATE PERSISTENT SECRET}) survive across sessions.
+#' Then pass an empty or partial `catalog_connection_string`; DuckDB fills in
+#' the rest from the secret. See
+#' \url{https://duckdb.org/docs/stable/configuration/secrets_manager}.
 #'
-#' See \url{https://duckdb.org/docs/stable/configuration/secrets_manager} for details.
-#'
-#' @section Windows Limitation:
-#' The PostgreSQL and MySQL backends require the corresponding DuckDB extensions
-#' (\code{postgres} and \code{mysql}), which are \strong{not available on Windows}
-#' when using R. This is because the R \code{duckdb} package is built with the
-#' MinGW toolchain (platform \code{windows_amd64_mingw}), and DuckDB does not
-#' distribute the \code{postgres} or \code{mysql} extensions for this platform.
-#' There is no known workaround for R on Windows.
-#'
-#' The \code{sqlite} and \code{duckdb} backends work on all platforms.
-#'
-#' To use PostgreSQL or MySQL backends, run R on Linux or macOS, or use
-#' Windows Subsystem for Linux (WSL).
-#'
-#' See \url{https://github.com/duckdb/duckdb/issues/7892} for details.
+#' **Windows limitation:** The `postgres` and `mysql` DuckDB extensions are not
+#' available on Windows (MinGW toolchain). Only `duckdb` and `sqlite` backends
+#' work there. Use Linux, macOS, or WSL for PostgreSQL/MySQL backends.
+#' See \url{https://github.com/duckdb/duckdb/issues/7892}.
 #'
 #' @returns NULL
 #' @export
 #'
-#' @seealso [detach_ducklake()] to close the connection, [install_ducklake()] to
-#'   install required DuckDB extensions
+#' @seealso [detach_ducklake()], [install_ducklake()]
 #'
 #' @examples
 #' \dontrun{
-#' # Default: DuckDB catalog (single-client)
+#' # DuckDB catalog (default)
 #' attach_ducklake("my_lake")
-#'
-#' # DuckDB catalog with custom data path
 #' attach_ducklake("my_lake", lake_path = "~/data/lake")
 #'
-#' # PostgreSQL catalog (multi-client)
+#' # PostgreSQL catalog
 #' attach_ducklake(
 #'   "my_lake",
 #'   backend = "postgres",
@@ -98,7 +70,7 @@
 #'   lake_path = "/shared/lake/data/"
 #' )
 #'
-#' # SQLite catalog (multi-process local)
+#' # SQLite catalog
 #' attach_ducklake(
 #'   "my_lake",
 #'   backend = "sqlite",
@@ -106,7 +78,7 @@
 #'   lake_path = "data_files/"
 #' )
 #'
-#' # MySQL catalog (multi-client)
+#' # MySQL catalog
 #' attach_ducklake(
 #'   "my_lake",
 #'   backend = "mysql",
@@ -121,7 +93,7 @@ attach_ducklake <- function(ducklake_name, lake_path = NULL,
                              override_data_path = FALSE) {
   backend <- match.arg(backend)
   
-  # Validate inputs for non-DuckDB backends
+  # Non-DuckDB backends need both a connection string and a data path
   if (backend != "duckdb") {
     if (is.null(catalog_connection_string)) {
       cli::cli_abort(c(
@@ -137,7 +109,6 @@ attach_ducklake <- function(ducklake_name, lake_path = NULL,
     }
   }
   
-  # Warn about known MySQL issues
   if (backend == "mysql") {
     cli::cli_warn(c(
       "MySQL has known issues as a DuckLake catalog backend.",
@@ -159,10 +130,9 @@ attach_ducklake <- function(ducklake_name, lake_path = NULL,
     set_ducklake_connection(conn, backend = backend,
                             catalog_connection_string = catalog_connection_string)
   } else {
-    # Only update backend metadata without storing the connection reference.
-    # If the connection came from duckplyr's fallback (i.e., .ducklake_env$connection
-    # is NULL), we must NOT store it - otherwise detach_ducklake() would shut down
-    # duckplyr's shared singleton, breaking subsequent re-attaches.
+    # Update backend metadata only; don't store the connection reference.
+    # If this is duckplyr's fallback singleton we must not own it, otherwise
+    # detach_ducklake(shutdown = TRUE) would kill duckplyr's shared connection.
     .ducklake_env$backend <- backend
     .ducklake_env$catalog_connection_string <- catalog_connection_string
   }
@@ -179,10 +149,10 @@ attach_ducklake <- function(ducklake_name, lake_path = NULL,
     return(invisible(NULL))
   }
   
-  # Ensure required DuckDB extensions are installed and loaded
+  # Load required extensions (ducklake + backend-specific)
   ensure_extensions(backend)
   
-  # Build and execute the ATTACH command
+  # Build and run the ATTACH command
   attach_sql <- build_attach_sql(ducklake_name, lake_path, backend,
                                   catalog_connection_string, read_only,
                                   override_data_path)
@@ -192,12 +162,11 @@ attach_ducklake <- function(ducklake_name, lake_path = NULL,
   invisible(NULL)
 }
 
-#' Ensure required DuckDB extensions are installed and loaded
+#' Install and load required DuckDB extensions for a given backend
 #'
-#' @param backend The catalog backend type
+#' @param backend Catalog backend type
 #' @keywords internal
 ensure_extensions <- function(backend) {
-  # ducklake is always required
   tryCatch({
     ducklake_db_exec("LOAD ducklake;")
   }, error = function(e) {
@@ -205,7 +174,6 @@ ensure_extensions <- function(backend) {
     ducklake_db_exec("LOAD ducklake;")
   })
   
-  # Load backend-specific extension
   ext <- switch(backend,
     postgres = "postgres",
     sqlite = "sqlite",
@@ -223,20 +191,20 @@ ensure_extensions <- function(backend) {
   }
 }
 
-#' Build the ATTACH SQL statement for a DuckLake
+#' Build the ATTACH SQL for a DuckLake
 #'
 #' @param ducklake_name Name for the ducklake alias
 #' @param lake_path Path for data files
 #' @param backend Catalog backend type
 #' @param catalog_connection_string Backend-specific connection string
 #' @param read_only Whether to attach in read-only mode
+#' @param override_data_path Whether to add OVERRIDE_DATA_PATH TRUE
 #'
-#' @return A SQL ATTACH statement string
+#' @returns A SQL ATTACH statement string
 #' @keywords internal
 build_attach_sql <- function(ducklake_name, lake_path, backend,
                               catalog_connection_string, read_only,
                               override_data_path = FALSE) {
-  # Build the ducklake: connection string
   connection_string <- switch(backend,
     duckdb = {
       if (!is.null(lake_path)) {
@@ -252,7 +220,6 @@ build_attach_sql <- function(ducklake_name, lake_path, backend,
     mysql = sprintf("ducklake:mysql:%s", catalog_connection_string)
   )
   
-  # Build ATTACH options
   options <- character()
   
   if (!is.null(lake_path)) {
@@ -267,7 +234,6 @@ build_attach_sql <- function(ducklake_name, lake_path, backend,
     options <- c(options, "OVERRIDE_DATA_PATH TRUE")
   }
   
-  # Assemble full ATTACH statement
   if (length(options) > 0) {
     options_str <- paste(options, collapse = ", ")
     sprintf("ATTACH '%s' AS %s (%s);", connection_string, ducklake_name, options_str)

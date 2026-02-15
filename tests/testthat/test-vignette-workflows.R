@@ -66,9 +66,8 @@ test_that("storage-and-backups.Rmd workflow: backup and restore", {
     # Detach original ducklake
     detach_ducklake(ducklake_name)
 
-    # Restore from backup by attaching to backup location with SAME name
-    # override_data_path = TRUE is needed because the catalog remembers the
-    # original DATA_PATH, which differs from the backup location
+    # Restore from backup; override_data_path = TRUE because the catalog
+    # still stores the original DATA_PATH
     attach_ducklake(ducklake_name, lake_path = actual_backup_dir,
                     override_data_path = TRUE)
 
@@ -86,7 +85,7 @@ test_that("storage-and-backups.Rmd workflow: backup and restore", {
     expect_equal(restored_snapshots$commit_message, original_snapshots$commit_message)
     expect_equal(restored_snapshots$author, original_snapshots$author)
 
-    # Clean up - fully shut down so file locks are released before unlink
+    # Full shutdown so file locks are released before unlink
     detach_ducklake(ducklake_name, shutdown = TRUE)
 
   }, finally = {

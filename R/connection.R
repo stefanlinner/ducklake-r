@@ -1,4 +1,4 @@
-# Package environment to store the ducklake connection and backend metadata
+# Package environment to store the ducklake connection
 .ducklake_env <- new.env(parent = emptyenv())
 
 #' Get the current DuckLake connection
@@ -31,8 +31,8 @@ get_ducklake_connection <- function() {
 #' Set the DuckLake connection
 #'
 #' @param conn A DuckDB connection object
-#' @param backend The catalog backend type (e.g., "duckdb", "postgres", "sqlite", "mysql")
-#' @param catalog_connection_string The backend-specific connection string used for the catalog
+#' @param backend Catalog backend type (e.g. `"duckdb"`, `"postgres"`, `"sqlite"`, `"mysql"`)
+#' @param catalog_connection_string Backend-specific connection string for the catalog
 #' @keywords internal
 set_ducklake_connection <- function(conn, backend = "duckdb",
                                      catalog_connection_string = NULL) {
@@ -44,27 +44,24 @@ set_ducklake_connection <- function(conn, backend = "duckdb",
 
 #' Get the current catalog backend type
 #'
-#' Returns which catalog database backend is in use for the current DuckLake
-#' connection. Defaults to \code{"duckdb"} if no backend has been explicitly set.
+#' Returns which catalog backend is in use. Defaults to `"duckdb"` when no
+#' backend has been set.
 #'
-#' @return A character string: one of \code{"duckdb"}, \code{"postgres"},
-#'   \code{"sqlite"}, or \code{"mysql"}.
+#' @returns One of `"duckdb"`, `"postgres"`, `"sqlite"`, or `"mysql"`.
 #' @export
 get_ducklake_backend <- function() {
   backend <- .ducklake_env$backend
   if (is.null(backend)) "duckdb" else backend
 }
 
-#' Execute a SQL statement on the DuckLake connection
+#' Execute SQL on the DuckLake connection
 #'
-#' A thin wrapper around \code{DBI::dbExecute()} that always uses the
-#' connection stored in the ducklake package environment. This ensures all
-#' SQL statements (ATTACH, USE, CREATE TABLE, BEGIN/COMMIT, etc.) are routed
-#' to the same DuckDB connection.
+#' Thin wrapper around [DBI::dbExecute()] that routes through
+#' [get_ducklake_connection()].
 #'
-#' @param sql A single SQL statement to execute
+#' @param sql SQL statement to execute
 #'
-#' @return The return value of \code{DBI::dbExecute()}, invisibly.
+#' @returns The number of rows affected, invisibly.
 #' @keywords internal
 ducklake_db_exec <- function(sql) {
   conn <- get_ducklake_connection()
@@ -73,25 +70,13 @@ ducklake_db_exec <- function(sql) {
 
 #' Detach from a ducklake
 #'
-#' Detaches from the current DuckLake. By default, this performs a "soft detach":
-#' the DuckLake databases are removed from the DuckDB connection, but the
-#' underlying DuckDB process stays alive. This allows attaching a different
-#' DuckLake (potentially with a different backend) in the same session without
-#' losing the connection.
+#' By default performs a soft detach: the DuckLake database is removed but the
+#' DuckDB process stays alive, so you can attach a different lake in the same
+#' session. Use `shutdown = TRUE` to fully close the connection and release
+#' file locks.
 #'
-#' Set \code{shutdown = TRUE} to fully shut down the DuckDB connection, which
-#' frees all memory and releases any file locks. This is equivalent to the
-#' previous default behavior.
-#'
-#' @note Both soft and hard detach clear the stored backend metadata
-#'   (\code{backend}, \code{catalog_connection_string}). After a soft detach,
-#'   \code{get_ducklake_backend()} will return \code{"duckdb"} (the default)
-#'   until a new lake is attached.
-#'
-#' @param ducklake_name Optional name of the ducklake to detach. If not provided,
-#'   only cleans up the package metadata.
-#' @param shutdown Logical. If \code{TRUE}, fully shuts down the DuckDB connection
-#'   after detaching. Defaults to \code{FALSE}.
+#' @param ducklake_name Optional name of the ducklake to detach.
+#' @param shutdown If `TRUE`, shut down the DuckDB connection after detaching.
 #'
 #' @returns NULL
 #' @export
@@ -102,11 +87,8 @@ ducklake_db_exec <- function(sql) {
 #' # ... do work ...
 #' detach_ducklake("my_ducklake")
 #'
-#' # Attach a different ducklake in the same session
-#' attach_ducklake("other_lake", backend = "sqlite", ...)
-#'
 #' # Full shutdown when completely done
-#' detach_ducklake("other_lake", shutdown = TRUE)
+#' detach_ducklake("my_ducklake", shutdown = TRUE)
 #' }
 detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
   conn <- get_ducklake_connection()
@@ -114,25 +96,21 @@ detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
   is_valid <- tryCatch(DBI::dbIsValid(conn), error = function(e) FALSE)
   
   if (is_valid) {
-    # If a ducklake name is provided, detach it from DuckDB
     if (!is.null(ducklake_name)) {
       tryCatch({
-        # First detach the user-facing database
+        # Detach the user-facing database and its metadata catalog
         DBI::dbExecute(conn, sprintf("DETACH %s;", ducklake_name))
-        
-        # Also detach the metadata catalog that DuckLake creates
         metadata_name <- sprintf("__ducklake_metadata_%s", ducklake_name)
         DBI::dbExecute(conn, sprintf("DETACH %s;", metadata_name))
       }, error = function(e) {
         # Ignore errors if database is not attached
       })
       
-      # Switch back to the default in-memory database so subsequent
-      # operations don't target the detached lake
+      # Switch back to in-memory so subsequent queries don't target
+      # the detached lake
       tryCatch(DBI::dbExecute(conn, "USE memory;"), error = function(e) NULL)
     }
     
-    # Optionally shut down the DuckDB connection entirely
     if (shutdown) {
       tryCatch({
         DBI::dbDisconnect(conn, shutdown = TRUE)
@@ -140,14 +118,12 @@ detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
         warning("Could not disconnect: ", e$message)
       })
       
-      # Force garbage collection to finalize DuckDB objects and release file locks.
-      # This is necessary on Windows where DuckDB holds exclusive file locks that
-      # aren't released until the R connection object's finalizer runs.
+      # gc() finalizes DuckDB objects so file locks are released immediately
+      # (on Windows, DuckDB holds exclusive locks until the R finalizer runs)
       gc()
     }
   }
   
-  # Clean up package metadata
   .ducklake_env$connection <- NULL
   .ducklake_env$backend <- NULL
   .ducklake_env$catalog_connection_string <- NULL

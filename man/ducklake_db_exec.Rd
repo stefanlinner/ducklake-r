@@ -2,20 +2,18 @@
 % Please edit documentation in R/connection.R
 \name{ducklake_db_exec}
 \alias{ducklake_db_exec}
-\title{Execute a SQL statement on the DuckLake connection}
+\title{Execute SQL on the DuckLake connection}
 \usage{
 ducklake_db_exec(sql)
 }
 \arguments{
-\item{sql}{A single SQL statement to execute}
+\item{sql}{SQL statement to execute}
 }
 \value{
-The return value of \code{DBI::dbExecute()}, invisibly.
+The number of rows affected, invisibly.
 }
 \description{
-A thin wrapper around \code{DBI::dbExecute()} that always uses the
-connection stored in the ducklake package environment. This ensures all
-SQL statements (ATTACH, USE, CREATE TABLE, BEGIN/COMMIT, etc.) are routed
-to the same DuckDB connection.
+Thin wrapper around \code{\link[DBI:dbExecute]{DBI::dbExecute()}} that routes through
+\code{\link[=get_ducklake_connection]{get_ducklake_connection()}}.
 }
 \keyword{internal}

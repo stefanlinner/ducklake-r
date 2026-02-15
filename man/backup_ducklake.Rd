@@ -2,7 +2,7 @@
 % Please edit documentation in R/backup_ducklake.R
 \name{backup_ducklake}
 \alias{backup_ducklake}
-\title{Create a complete DuckLake backup}
+\title{Create a DuckLake backup}
 \usage{
 backup_ducklake(ducklake_name, lake_path, backup_path)
 }
@@ -20,25 +20,14 @@ Invisibly returns the path to the created backup directory
 }
 \description{
 Creates a timestamped backup of the Parquet data files and, for file-based
-catalog backends (DuckDB, SQLite), the catalog database file.
+backends (DuckDB, SQLite), the catalog database file. For PostgreSQL/MySQL
+backends only data files are copied; use \code{pg_dump} / \code{mysqldump} for the
+catalog.
 }
 \details{
-The function creates a backup by:
-\enumerate{
-\item Creating a timestamped backup directory
-\item Copying the catalog database file (.ducklake or .sqlite) if the backend
-is file-based (DuckDB or SQLite)
-\item Copying all Parquet data files from the main/ directory
-}
-
-For file-based backends (DuckDB, SQLite), the DuckLake is temporarily detached
-during backup to ensure a consistent catalog copy. It is automatically
-re-attached after the backup completes.
-
-For remote catalog backends (PostgreSQL, MySQL), only the Parquet data files
-are backed up. The catalog database must be backed up separately using the
-database's own backup tools (e.g., \code{pg_dump} for PostgreSQL,
-\code{mysqldump} for MySQL).
+For file-based backends the DuckLake is temporarily detached during backup
+to release file locks and ensure a consistent copy. It is automatically
+re-attached afterwards.
 
 \strong{Important notes:}
 \itemize{
@@ -72,7 +61,7 @@ backup_dir <- backup_ducklake(
   backup_path = file.path(lake_dir, "backups")
 )
 
-# To restore from backup (override_data_path needed if location differs):
+# Restore (override_data_path needed when location differs):
 # detach_ducklake("my_lake")
 # attach_ducklake("my_lake", lake_path = backup_dir, override_data_path = TRUE)
 }

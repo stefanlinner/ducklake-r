@@ -4,7 +4,7 @@
 #' @param table_name The target table name for the operation. If not provided, will be extracted from the table attribute (set by get_ducklake_table())
 #' @param .quiet Logical, whether to suppress debug output (default TRUE)
 #'
-#' @return The number of rows affected, invisibly
+#' @returns The number of rows affected, invisibly
 #' @export
 #'
 #' @details
