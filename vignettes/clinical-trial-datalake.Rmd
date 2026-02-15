@@ -8,9 +8,13 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
+# Skip this vignette if optional packages are not available
+has_deps <- requireNamespace("pharmaversesdtm", quietly = TRUE) &&
+  requireNamespace("admiral", quietly = TRUE)
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  eval = has_deps
 )
 # Use a unique temp directory for this vignette to avoid conflicts during R CMD check
 vignette_temp_dir <- file.path(tempdir(), "clinical_trial_vignette")

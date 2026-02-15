@@ -71,43 +71,51 @@ backup_ducklake <- function(ducklake_name, lake_path, backup_path) {
   backup_dir <- file.path(backup_path, paste0("backup_", timestamp))
   dir.create(backup_dir, recursive = TRUE, showWarnings = FALSE)
 
-  # For file-based backends, shut down the connection to release file locks
-  # before copying the catalog file, then re-attach afterwards.
-  if (backend == "duckdb") {
-    catalog_file <- file.path(lake_path, paste0(ducklake_name, ".ducklake"))
-    if (file.exists(catalog_file)) {
+  # For file-based backends, fully shut down the connection to release file
+  # locks before copying the catalog, then re-attach afterwards.
+  if (backend %in% c("duckdb", "sqlite")) {
+    catalog_file <- if (backend == "duckdb") {
+      file.path(lake_path, paste0(ducklake_name, ".ducklake"))
+    } else {
+      .ducklake_env$catalog_connection_string
+    }
+
+    if (!is.null(catalog_file) && file.exists(catalog_file)) {
+      had_owned_connection <- !is.null(.ducklake_env$connection)
       detach_ducklake(ducklake_name, shutdown = TRUE)
 
       copy_ok <- file.copy(
         from = catalog_file,
-        to = file.path(backup_dir, paste0(ducklake_name, ".ducklake"))
-      )
-
-      attach_ducklake(ducklake_name, lake_path = lake_path, backend = backend)
-
-      if (copy_ok) {
-        cli::cli_inform("Catalog backed up successfully.")
-      } else {
-        cli::cli_warn("Failed to copy catalog file: {.path {catalog_file}}")
-      }
-    } else {
-      cli::cli_warn("Catalog file not found: {.path {catalog_file}}")
-    }
-  } else if (backend == "sqlite") {
-    catalog_file <- .ducklake_env$catalog_connection_string
-    if (!is.null(catalog_file) && file.exists(catalog_file)) {
-      detach_ducklake(ducklake_name, shutdown = TRUE)
-
-      file.copy(
-        from = catalog_file,
         to = file.path(backup_dir, basename(catalog_file))
       )
 
-      attach_ducklake(ducklake_name, lake_path = lake_path, backend = backend,
-                      catalog_connection_string = catalog_file)
-      cli::cli_inform("SQLite catalog backed up successfully.")
+      # If we shut down an owned connection, create a new one so we don't
+      # fall back to duckplyr's singleton for the re-attach
+      if (had_owned_connection) {
+        set_ducklake_connection(DBI::dbConnect(duckdb::duckdb()))
+      }
+
+      if (backend == "duckdb") {
+        attach_ducklake(ducklake_name, lake_path = lake_path, backend = backend)
+      } else {
+        attach_ducklake(ducklake_name, lake_path = lake_path, backend = backend,
+                        catalog_connection_string = catalog_file)
+      }
+
+      dest_file <- file.path(backup_dir, basename(catalog_file))
+      if (copy_ok && file.size(dest_file) > 0) {
+        cli::cli_inform("Catalog backed up successfully.")
+      } else {
+        cli::cli_warn(c(
+          "Catalog file could not be copied (likely locked by DuckDB).",
+          "i" = "Use {.code set_ducklake_connection(DBI::dbConnect(duckdb::duckdb()))} before backup to enable full shutdown.",
+          "i" = "Data files were still backed up."
+        ))
+        # Remove the 0-byte file so it doesn't look like a valid backup
+        unlink(dest_file)
+      }
     } else {
-      cli::cli_warn("SQLite catalog file not found: {.path {catalog_file}}")
+      cli::cli_warn("Catalog file not found: {.path {catalog_file}}")
     }
   } else {
     tool <- if (backend == "postgres") "pg_dump" else "mysqldump"

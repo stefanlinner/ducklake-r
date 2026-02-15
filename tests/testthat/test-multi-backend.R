@@ -162,6 +162,11 @@ test_that("SQLite backend: create table, query, and time travel", {
   sqlite_data <- file.path(temp_dir, "data")
   dir.create(sqlite_data, showWarnings = FALSE, recursive = TRUE)
 
+  # Use a dedicated connection so the SQLite extension and catalog state
+  # don't leak into duckplyr's singleton used by other tests
+  conn <- DBI::dbConnect(duckdb::duckdb())
+  set_ducklake_connection(conn)
+
   tryCatch(
     {
       attach_ducklake(
@@ -211,7 +216,7 @@ test_that("SQLite backend: create table, query, and time travel", {
         dplyr::collect()
       expect_false("kpl" %in% names(v1))
 
-      # Full shutdown so SQLite state doesn't leak into other tests
+      # Full shutdown to release all resources
       detach_ducklake("test_sqlite_backend", shutdown = TRUE)
     },
     finally = {

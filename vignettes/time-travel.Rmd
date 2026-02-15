@@ -293,3 +293,7 @@ all_snapshots |>
   select(snapshot_id, snapshot_time, changes) |>
   head(10)
 ```
+
+```{r cleanup, include=FALSE}
+detach_ducklake("time_travel_demo")
+```

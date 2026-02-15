@@ -19,14 +19,17 @@ test_that("storage-and-backups.Rmd workflow: backup and restore", {
   skip_if_not_installed("dplyr")
   skip_if_not_installed("fs")
 
-  # Create separate temp directories for original and backup
-  original_lake_dir <- file.path(tempdir(), "backup_test_original_first")
-  backup_base_dir <- file.path(tempdir(), "backup_test_backups_first")
+  # Use unique temp dirs so stale files from previous runs can't interfere
+  original_lake_dir <- tempfile("backup_test_original_")
+  backup_base_dir <- tempfile("backup_test_backups_")
   dir.create(original_lake_dir, showWarnings = FALSE, recursive = TRUE)
   dir.create(backup_base_dir, showWarnings = FALSE, recursive = TRUE)
 
   tryCatch({
-    # Set up ducklake in original location
+    # Use a dedicated connection for reliable cleanup across test runs
+    conn <- DBI::dbConnect(duckdb::duckdb())
+    set_ducklake_connection(conn)
+
     ducklake_name <- "backup_test_lake"
     attach_ducklake(ducklake_name, lake_path = original_lake_dir)
 
@@ -85,11 +88,11 @@ test_that("storage-and-backups.Rmd workflow: backup and restore", {
     expect_equal(restored_snapshots$commit_message, original_snapshots$commit_message)
     expect_equal(restored_snapshots$author, original_snapshots$author)
 
-    # Full shutdown so file locks are released before unlink
     detach_ducklake(ducklake_name, shutdown = TRUE)
 
   }, finally = {
-    # Clean up directories
+    # Ensure shutdown even if test errors early
+    tryCatch(detach_ducklake(shutdown = TRUE), error = function(e) NULL)
     unlink(original_lake_dir, recursive = TRUE)
     unlink(backup_base_dir, recursive = TRUE)
   })

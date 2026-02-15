@@ -111,7 +111,10 @@ detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
       tryCatch(DBI::dbExecute(conn, "USE memory;"), error = function(e) NULL)
     }
     
-    if (shutdown) {
+    # Only shut down if we own the connection. duckplyr's singleton
+    # (used when .ducklake_env$connection is NULL) can't recover from
+    # dbDisconnect and must not be killed.
+    if (shutdown && !is.null(.ducklake_env$connection)) {
       tryCatch({
         DBI::dbDisconnect(conn, shutdown = TRUE)
       }, error = function(e) {
@@ -121,10 +124,10 @@ detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
       # gc() finalizes DuckDB objects so file locks are released immediately
       # (on Windows, DuckDB holds exclusive locks until the R finalizer runs)
       gc()
+      .ducklake_env$connection <- NULL
     }
   }
   
-  .ducklake_env$connection <- NULL
   .ducklake_env$backend <- NULL
   .ducklake_env$catalog_connection_string <- NULL
   
