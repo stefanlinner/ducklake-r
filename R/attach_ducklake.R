@@ -140,9 +140,12 @@ attach_ducklake <- function(ducklake_name, lake_path = NULL,
     set_ducklake_connection(conn, backend = backend,
                             catalog_connection_string = catalog_connection_string)
   } else {
-    # Update backend metadata even if connection already exists
-    set_ducklake_connection(conn, backend = backend,
-                            catalog_connection_string = catalog_connection_string)
+    # Only update backend metadata without storing the connection reference.
+    # If the connection came from duckplyr's fallback (i.e., .ducklake_env$connection
+    # is NULL), we must NOT store it - otherwise detach_ducklake() would shut down
+    # duckplyr's shared singleton, breaking subsequent re-attaches.
+    .ducklake_env$backend <- backend
+    .ducklake_env$catalog_connection_string <- catalog_connection_string
   }
   
   # Check if this ducklake is already attached to avoid conflicts
