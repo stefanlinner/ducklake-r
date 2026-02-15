@@ -73,9 +73,25 @@ ducklake_db_exec <- function(sql) {
 
 #' Detach from a ducklake
 #'
-#' Detaches from the current DuckLake and closes the DuckDB connection.
+#' Detaches from the current DuckLake. By default, this performs a "soft detach":
+#' the DuckLake databases are removed from the DuckDB connection, but the
+#' underlying DuckDB process stays alive. This allows attaching a different
+#' DuckLake (potentially with a different backend) in the same session without
+#' losing the connection.
 #'
-#' @param ducklake_name Optional name of the ducklake to detach. If not provided, closes the current connection.
+#' Set \code{shutdown = TRUE} to fully shut down the DuckDB connection, which
+#' frees all memory and releases any file locks. This is equivalent to the
+#' previous default behavior.
+#'
+#' @note Both soft and hard detach clear the stored backend metadata
+#'   (\code{backend}, \code{catalog_connection_string}). After a soft detach,
+#'   \code{get_ducklake_backend()} will return \code{"duckdb"} (the default)
+#'   until a new lake is attached.
+#'
+#' @param ducklake_name Optional name of the ducklake to detach. If not provided,
+#'   only cleans up the package metadata.
+#' @param shutdown Logical. If \code{TRUE}, fully shuts down the DuckDB connection
+#'   after detaching. Defaults to \code{FALSE}.
 #'
 #' @returns NULL
 #' @export
@@ -85,11 +101,20 @@ ducklake_db_exec <- function(sql) {
 #' attach_ducklake("my_ducklake")
 #' # ... do work ...
 #' detach_ducklake("my_ducklake")
+#'
+#' # Attach a different ducklake in the same session
+#' attach_ducklake("other_lake", backend = "sqlite", ...)
+#'
+#' # Full shutdown when completely done
+#' detach_ducklake("other_lake", shutdown = TRUE)
 #' }
-detach_ducklake <- function(ducklake_name = NULL) {
-  conn <- .ducklake_env$connection
-  if (!is.null(conn)) {
-    # If a ducklake name is provided, try to detach it first
+detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
+  conn <- get_ducklake_connection()
+  
+  is_valid <- tryCatch(DBI::dbIsValid(conn), error = function(e) FALSE)
+  
+  if (is_valid) {
+    # If a ducklake name is provided, detach it from DuckDB
     if (!is.null(ducklake_name)) {
       tryCatch({
         # First detach the user-facing database
@@ -101,18 +126,26 @@ detach_ducklake <- function(ducklake_name = NULL) {
       }, error = function(e) {
         # Ignore errors if database is not attached
       })
+      
+      # Switch back to the default in-memory database so subsequent
+      # operations don't target the detached lake
+      tryCatch(DBI::dbExecute(conn, "USE memory;"), error = function(e) NULL)
     }
     
-    # Close the connection
-    tryCatch({
-      DBI::dbDisconnect(conn, shutdown = TRUE)
-    }, error = function(e) {
-      warning("Could not disconnect: ", e$message)
-    })
-    .ducklake_env$connection <- NULL
-    .ducklake_env$backend <- NULL
-    .ducklake_env$catalog_connection_string <- NULL
+    # Optionally shut down the DuckDB connection entirely
+    if (shutdown) {
+      tryCatch({
+        DBI::dbDisconnect(conn, shutdown = TRUE)
+      }, error = function(e) {
+        warning("Could not disconnect: ", e$message)
+      })
+    }
   }
+  
+  # Clean up package metadata
+  .ducklake_env$connection <- NULL
+  .ducklake_env$backend <- NULL
+  .ducklake_env$catalog_connection_string <- NULL
   
   invisible(NULL)
 }

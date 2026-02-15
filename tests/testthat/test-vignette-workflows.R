@@ -66,9 +66,11 @@ test_that("storage-and-backups.Rmd workflow: backup and restore", {
     # Detach original ducklake
     detach_ducklake(ducklake_name)
 
-    # Restore from backup by attaching to backup location with SAME name (as shown in vignette)
-    # The catalog internally remembers it's called "backup_test_lake"
-    attach_ducklake(ducklake_name, lake_path = actual_backup_dir)
+    # Restore from backup by attaching to backup location with SAME name
+    # override_data_path = TRUE is needed because the catalog remembers the
+    # original DATA_PATH, which differs from the backup location
+    attach_ducklake(ducklake_name, lake_path = actual_backup_dir,
+                    override_data_path = TRUE)
 
     # Verify the data is intact in the restored ducklake
     restored_data <- get_ducklake_table("iris_data") |> dplyr::collect()

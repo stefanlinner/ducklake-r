@@ -26,10 +26,8 @@
 #' }
 install_ducklake <- function(backend = NULL) {
   # check that duckdb version is at least 1.3.0
-  drv <- duckdb::duckdb()
-  con <- DBI::dbConnect(drv)
-  duckdb_version <- DBI::dbGetQuery(con, "SELECT version()")[1,1]
-  DBI::dbDisconnect(con)
+  conn <- get_ducklake_connection()
+  duckdb_version <- DBI::dbGetQuery(conn, "SELECT version()")[1, 1]
   duckdb_version_numeric <- as.integer(gsub("\\.", "", sub("^v", "", duckdb_version)))
   if (duckdb_version_numeric < 130) {
     cli::cli_abort("duckdb must be version 1.3.0 or higher")

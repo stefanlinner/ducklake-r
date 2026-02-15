@@ -21,6 +21,10 @@
 #'   \item Copying all Parquet data files from the main/ directory
 #' }
 #'
+#' For file-based backends (DuckDB, SQLite), the DuckLake is temporarily detached
+#' during backup to ensure a consistent catalog copy. It is automatically
+#' re-attached after the backup completes.
+#'
 #' For remote catalog backends (PostgreSQL, MySQL), only the Parquet data files
 #' are backed up. The catalog database must be backed up separately using the
 #' database's own backup tools (e.g., \code{pg_dump} for PostgreSQL,
@@ -58,9 +62,9 @@
 #'   backup_path = file.path(lake_dir, "backups")
 #' )
 #'
-#' # To restore from backup:
+#' # To restore from backup (override_data_path needed if location differs):
 #' # detach_ducklake("my_lake")
-#' # attach_ducklake("my_lake", lake_path = backup_dir)
+#' # attach_ducklake("my_lake", lake_path = backup_dir, override_data_path = TRUE)
 #' }
 backup_ducklake <- function(ducklake_name, lake_path, backup_path) {
   # Validate inputs
@@ -70,34 +74,53 @@ backup_ducklake <- function(ducklake_name, lake_path, backup_path) {
   if (!dir.exists(lake_path)) {
     cli::cli_abort("{.arg lake_path} does not exist: {.path {lake_path}}")
   }
-  
+
   backend <- get_ducklake_backend()
-  
+
   # Create backup directory with timestamp
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
   backup_dir <- file.path(backup_path, paste0("backup_", timestamp))
   dir.create(backup_dir, recursive = TRUE, showWarnings = FALSE)
-  
-  # Backup catalog for file-based backends
+
+  # Backup catalog for file-based backends.
+  # DuckDB's R bindings hold exclusive file locks on database files. To get a
+  # consistent copy we must fully shut down the connection and run gc() so R
+  # finalises the DuckDB objects and releases the OS file handles. The lake is
+  # automatically re-attached after the copy.
   if (backend == "duckdb") {
     catalog_file <- file.path(lake_path, paste0(ducklake_name, ".ducklake"))
     if (file.exists(catalog_file)) {
-      file.copy(
+      detach_ducklake(ducklake_name, shutdown = TRUE)
+      gc()
+
+      copy_ok <- file.copy(
         from = catalog_file,
         to = file.path(backup_dir, paste0(ducklake_name, ".ducklake"))
       )
-      cli::cli_inform("Catalog backed up successfully.")
+
+      attach_ducklake(ducklake_name, lake_path = lake_path, backend = backend)
+
+      if (copy_ok) {
+        cli::cli_inform("Catalog backed up successfully.")
+      } else {
+        cli::cli_warn("Failed to copy catalog file: {.path {catalog_file}}")
+      }
     } else {
       cli::cli_warn("Catalog file not found: {.path {catalog_file}}")
     }
   } else if (backend == "sqlite") {
-    # For SQLite, the catalog connection string is the file path
     catalog_file <- .ducklake_env$catalog_connection_string
     if (!is.null(catalog_file) && file.exists(catalog_file)) {
+      detach_ducklake(ducklake_name, shutdown = TRUE)
+      gc()
+
       file.copy(
         from = catalog_file,
         to = file.path(backup_dir, basename(catalog_file))
       )
+
+      attach_ducklake(ducklake_name, lake_path = lake_path, backend = backend,
+                      catalog_connection_string = catalog_file)
       cli::cli_inform("SQLite catalog backed up successfully.")
     } else {
       cli::cli_warn("SQLite catalog file not found: {.path {catalog_file}}")
@@ -111,7 +134,7 @@ backup_ducklake <- function(ducklake_name, lake_path, backup_path) {
       "i" = "Only Parquet data files will be backed up."
     ))
   }
-  
+
   # Backup data directory
   main_dir <- file.path(lake_path, "main")
   if (dir.exists(main_dir)) {
@@ -123,7 +146,7 @@ backup_ducklake <- function(ducklake_name, lake_path, backup_path) {
   } else {
     cli::cli_warn("Data directory not found: {.path {main_dir}}")
   }
-  
+
   cli::cli_inform("Backup completed: {.path {backup_dir}}")
   invisible(backup_dir)
 }

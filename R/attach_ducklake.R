@@ -35,6 +35,9 @@
 #'       The target database must already exist in MySQL.}
 #'   }
 #' @param read_only Logical. Whether to attach in read-only mode (default \code{FALSE}).
+#' @param override_data_path Logical. Whether to override the stored DATA_PATH in the
+#'   catalog (default \code{FALSE}). Set to \code{TRUE} when restoring from a backup
+#'   where the data files have been moved to a different location than the original.
 #'
 #' @section Credential Management:
 #' For secure credential management with PostgreSQL or MySQL backends, consider
@@ -99,7 +102,8 @@
 attach_ducklake <- function(ducklake_name, lake_path = NULL,
                              backend = c("duckdb", "postgres", "sqlite", "mysql"),
                              catalog_connection_string = NULL,
-                             read_only = FALSE) {
+                             read_only = FALSE,
+                             override_data_path = FALSE) {
   backend <- match.arg(backend)
   
   # Validate inputs for non-DuckDB backends
@@ -165,7 +169,8 @@ attach_ducklake <- function(ducklake_name, lake_path = NULL,
   
   # Build and execute the ATTACH command
   attach_sql <- build_attach_sql(ducklake_name, lake_path, backend,
-                                  catalog_connection_string, read_only)
+                                  catalog_connection_string, read_only,
+                                  override_data_path)
   ducklake_db_exec(attach_sql)
   ducklake_db_exec(sprintf("USE %s;", ducklake_name))
   
@@ -214,7 +219,8 @@ ensure_extensions <- function(backend) {
 #' @return A SQL ATTACH statement string
 #' @keywords internal
 build_attach_sql <- function(ducklake_name, lake_path, backend,
-                              catalog_connection_string, read_only) {
+                              catalog_connection_string, read_only,
+                              override_data_path = FALSE) {
   # Build the ducklake: connection string
   connection_string <- switch(backend,
     duckdb = {
@@ -240,6 +246,10 @@ build_attach_sql <- function(ducklake_name, lake_path, backend,
   
   if (read_only) {
     options <- c(options, "READ_ONLY")
+  }
+
+  if (override_data_path) {
+    options <- c(options, "OVERRIDE_DATA_PATH TRUE")
   }
   
   # Assemble full ATTACH statement
