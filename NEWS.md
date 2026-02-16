@@ -34,7 +34,7 @@ Initial release of ducklake, an R package for versioned data lake infrastructure
 * `install_ducklake()` - Install/update DuckLake extension
 * `attach_ducklake()` - Initialize data lake connections
 * `detach_ducklake()` - Clean up connections
-* `get_ducklake_connection()`, `set_ducklake_connection()` - Manage active connections
+* `get_ducklake_connection()` - Retrieve the active DuckDB connection
 
 ### Query Execution
 * `ducklake_exec()` - Execute SQL with automatic assignment handling

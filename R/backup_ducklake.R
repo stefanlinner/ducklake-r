@@ -80,20 +80,12 @@ backup_ducklake <- function(ducklake_name, lake_path, backup_path) {
     }
 
     if (!is.null(catalog_file) && file.exists(catalog_file)) {
-      had_owned_connection <- !is.null(.ducklake_env$connection)
-
       detach_ducklake(ducklake_name, shutdown = TRUE)
 
       copy_ok <- file.copy(
         from = catalog_file,
         to = file.path(backup_dir, basename(catalog_file))
       )
-
-      # Recreate owned connection if we had one; the singleton was already
-      # recreated by shutdown_and_reset_singleton() inside detach_ducklake()
-      if (had_owned_connection) {
-        set_ducklake_connection(DBI::dbConnect(duckdb::duckdb()))
-      }
 
       if (backend == "duckdb") {
         attach_ducklake(ducklake_name, lake_path = lake_path, backend = backend)

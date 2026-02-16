@@ -10,16 +10,13 @@ get_ducklake_connection()
 A DuckDB connection object
 }
 \description{
-This function retrieves the active DuckLake connection. If no connection
-has been explicitly set via \code{set_ducklake_connection()}, it falls back
-to duckplyr's default DuckDB connection for seamless integration.
+Returns the DuckDB connection used by DuckLake. This is always duckplyr's
+default singleton connection, which provides critical setup (temp directory
+configuration, R function loading, and macro registration).
 }
 \note{
-This function uses \code{duckplyr:::get_default_duckdb_connection()}
-as a fallback when no connection has been explicitly set. While this accesses
-an unexported function, it is necessary for proper duckplyr integration as
-duckplyr's connection provides critical setup (singleton pattern, temp directory
-configuration, R function loading, and macro registration) that cannot be
-easily replicated. See the duckplyr source for details:
+This function uses \code{duckplyr:::get_default_duckdb_connection()}.
+While this accesses an unexported function, it is necessary for proper
+duckplyr integration. See the duckplyr source for details:
 \url{https://github.com/tidyverse/duckplyr/blob/main/R/relational-duckdb.R}
 }

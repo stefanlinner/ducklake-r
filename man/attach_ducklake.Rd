@@ -39,8 +39,7 @@ sets the Parquet data location (DuckLake's \code{DATA_PATH}).}
 \description{
 Wrapper for the ducklake \href{https://ducklake.select/docs/stable/duckdb/usage/connecting}{ATTACH} command.
 Creates a new DuckLake if the specified name does not exist, or connects to
-an existing one. The connection is stored in the package environment and can
-be closed with \code{\link[=detach_ducklake]{detach_ducklake()}}.
+an existing one. The lake can be detached with \code{\link[=detach_ducklake]{detach_ducklake()}}.
 }
 \details{
 By default DuckDB is used as the catalog database. Alternative backends

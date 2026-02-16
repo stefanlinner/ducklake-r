@@ -2,8 +2,7 @@
 #'
 #' Wrapper for the ducklake [ATTACH](https://ducklake.select/docs/stable/duckdb/usage/connecting) command.
 #' Creates a new DuckLake if the specified name does not exist, or connects to
-#' an existing one. The connection is stored in the package environment and can
-#' be closed with [detach_ducklake()].
+#' an existing one. The lake can be detached with [detach_ducklake()].
 #'
 #' By default DuckDB is used as the catalog database. Alternative backends
 #' (PostgreSQL, SQLite, MySQL) can be selected with the `backend` parameter,
@@ -117,25 +116,9 @@ attach_ducklake <- function(ducklake_name, lake_path,
     ))
   }
   
-  # Get connection - if it's invalid/closed, create a new one
   conn <- get_ducklake_connection()
-  
-  # Check if connection is valid, if not create a new one
-  is_valid <- tryCatch({
-    DBI::dbIsValid(conn)
-  }, error = function(e) FALSE)
-  
-  if (!is_valid) {
-    # Create a completely new DuckDB connection
-    conn <- DBI::dbConnect(duckdb::duckdb())
-    set_ducklake_connection(conn, backend = backend,
-                            catalog_connection_string = catalog_connection_string)
-  } else {
-    # Don't store the connection -- it may be duckplyr's singleton which
-    # we must not own. Just update the backend metadata.
-    .ducklake_env$backend <- backend
-    .ducklake_env$catalog_connection_string <- catalog_connection_string
-  }
+  .ducklake_env$backend <- backend
+  .ducklake_env$catalog_connection_string <- catalog_connection_string
   
   # Check if this ducklake is already attached to avoid conflicts
   # Query the list of attached databases

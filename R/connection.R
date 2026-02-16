@@ -1,45 +1,21 @@
-# Package environment to store the ducklake connection
+# Package environment to store ducklake metadata (backend type, connection string)
 .ducklake_env <- new.env(parent = emptyenv())
 
 #' Get the current DuckLake connection
 #'
-#' This function retrieves the active DuckLake connection. If no connection
-#' has been explicitly set via \code{set_ducklake_connection()}, it falls back
-#' to duckplyr's default DuckDB connection for seamless integration.
+#' Returns the DuckDB connection used by DuckLake. This is always duckplyr's
+#' default singleton connection, which provides critical setup (temp directory
+#' configuration, R function loading, and macro registration).
 #'
 #' @return A DuckDB connection object
 #' @export
 #'
-#' @note This function uses \code{duckplyr:::get_default_duckdb_connection()}
-#' as a fallback when no connection has been explicitly set. While this accesses
-#' an unexported function, it is necessary for proper duckplyr integration as
-#' duckplyr's connection provides critical setup (singleton pattern, temp directory
-#' configuration, R function loading, and macro registration) that cannot be
-#' easily replicated. See the duckplyr source for details:
+#' @note This function uses \code{duckplyr:::get_default_duckdb_connection()}.
+#' While this accesses an unexported function, it is necessary for proper
+#' duckplyr integration. See the duckplyr source for details:
 #' \url{https://github.com/tidyverse/duckplyr/blob/main/R/relational-duckdb.R}
 get_ducklake_connection <- function() {
-  conn <- .ducklake_env$connection
-  
-  if (is.null(conn)) {
-    # Fall back to duckplyr's default connection for proper integration
-    conn <- duckplyr:::get_default_duckdb_connection()
-  }
-  
-  return(conn)
-}
-
-#' Set the DuckLake connection
-#'
-#' @param conn A DuckDB connection object
-#' @param backend Catalog backend type
-#' @param catalog_connection_string Connection string for the catalog database
-#' @keywords internal
-set_ducklake_connection <- function(conn, backend = "duckdb",
-                                     catalog_connection_string = NULL) {
-  .ducklake_env$connection <- conn
-  .ducklake_env$backend <- backend
-  .ducklake_env$catalog_connection_string <- catalog_connection_string
-  invisible(conn)
+  duckplyr:::get_default_duckdb_connection()
 }
 
 #' Get the current catalog backend type
@@ -105,20 +81,9 @@ detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
     }
     
     if (shutdown) {
-      if (!is.null(.ducklake_env$connection)) {
-        # We own this connection, shut it down
-        tryCatch({
-          DBI::dbDisconnect(conn, shutdown = TRUE)
-        }, error = function(e) {
-          warning("Could not disconnect: ", e$message)
-        })
-        gc()
-        .ducklake_env$connection <- NULL
-      } else {
-        # Running on duckplyr's singleton -- shut it down to release
-        # file locks and immediately recreate it
-        shutdown_and_reset_singleton()
-      }
+      # Shut down duckplyr's singleton to release file locks and
+      # immediately recreate it so the session keeps working
+      shutdown_and_reset_singleton()
     }
   }
   
@@ -148,8 +113,6 @@ detach_ducklake <- function(ducklake_name = NULL, shutdown = FALSE) {
 #' @returns `TRUE` on success, `FALSE` on failure.
 #' @keywords internal
 shutdown_and_reset_singleton <- function() {
-  if (!is.null(.ducklake_env$connection)) return(FALSE)
-
   tryCatch({
     ddc  <- duckplyr:::default_duckdb_connection
     conn <- ddc$con
