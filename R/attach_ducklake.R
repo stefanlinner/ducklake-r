@@ -11,9 +11,9 @@
 #' See \url{https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database}.
 #'
 #' @param ducklake_name Name for the ducklake, used as the database alias in DuckDB
-#' @param lake_path Optional directory path. For `"duckdb"` this is where the
-#'   catalog file and Parquet data live. For other backends this sets the
-#'   Parquet data location (DuckLake's `DATA_PATH`).
+#' @param lake_path Directory path where the lake lives. For `"duckdb"` this is
+#'   where the catalog file and Parquet data are stored. For other backends this
+#'   sets the Parquet data location (DuckLake's `DATA_PATH`).
 #' @param backend Catalog backend: `"duckdb"` (default), `"postgres"`,
 #'   `"sqlite"`, or `"mysql"`.
 #' @param catalog_connection_string Backend-specific connection string:
@@ -59,7 +59,6 @@
 #' @examples
 #' \dontrun{
 #' # DuckDB catalog (default)
-#' attach_ducklake("my_lake")
 #' attach_ducklake("my_lake", lake_path = "~/data/lake")
 #'
 #' # PostgreSQL catalog
@@ -86,25 +85,27 @@
 #'   lake_path = "data_files/"
 #' )
 #' }
-attach_ducklake <- function(ducklake_name, lake_path = NULL,
+attach_ducklake <- function(ducklake_name, lake_path,
                              backend = c("duckdb", "postgres", "sqlite", "mysql"),
                              catalog_connection_string = NULL,
                              read_only = FALSE,
                              override_data_path = FALSE) {
   backend <- match.arg(backend)
   
-  # Non-DuckDB backends need both a connection string and a data path
+  if (missing(lake_path) || is.null(lake_path)) {
+    cli::cli_abort(c(
+      "A {.arg lake_path} is required.",
+      "i" = "This specifies the directory where the catalog and Parquet data files are stored.",
+      "i" = "Example: {.code attach_ducklake(\"{ducklake_name}\", lake_path = \"path/to/lake\")}"
+    ))
+  }
+  
+  # Non-DuckDB backends also need a connection string
   if (backend != "duckdb") {
     if (is.null(catalog_connection_string)) {
       cli::cli_abort(c(
         "A {.arg catalog_connection_string} is required for the {.val {backend}} backend.",
         "i" = "See {.url https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database} for connection string formats."
-      ))
-    }
-    if (is.null(lake_path)) {
-      cli::cli_abort(c(
-        "A {.arg lake_path} is required for the {.val {backend}} backend.",
-        "i" = "This specifies where Parquet data files will be stored (DuckLake's DATA_PATH)."
       ))
     }
   }
@@ -206,13 +207,8 @@ build_attach_sql <- function(ducklake_name, lake_path, backend,
                               override_data_path = FALSE) {
   connection_string <- switch(backend,
     duckdb = {
-      if (!is.null(lake_path)) {
-        # Construct full path to ducklake file
-        ducklake_path <- file.path(lake_path, paste0(ducklake_name, ".ducklake"))
-        sprintf("ducklake:%s", ducklake_path)
-      } else {
-        sprintf("ducklake:%s.ducklake", ducklake_name)
-      }
+      ducklake_path <- file.path(lake_path, paste0(ducklake_name, ".ducklake"))
+      sprintf("ducklake:%s", ducklake_path)
     },
     postgres = sprintf("ducklake:postgres:%s", catalog_connection_string),
     sqlite = sprintf("ducklake:sqlite:%s", catalog_connection_string),

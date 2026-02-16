@@ -167,10 +167,20 @@ set_snapshot_metadata <- function(ducklake_name, author = NULL, commit_message =
   
   set_clause <- paste(set_parts, collapse = ", ")
   
+  # PostgreSQL and MySQL backends don't use the .main. schema qualifier;
+
+  # DuckDB and SQLite do (SQLite is mapped through DuckDB's schema model).
+  backend <- get_ducklake_backend()
+  if (backend %in% c("postgres", "mysql")) {
+    table_prefix <- metadata_db
+  } else {
+    table_prefix <- sprintf("%s.main", metadata_db)
+  }
+  
   # Update the most recent snapshot
   query <- sprintf(
-    "UPDATE %s.main.ducklake_snapshot_changes SET %s WHERE snapshot_id = (SELECT max(snapshot_id) FROM %s.main.ducklake_snapshot)",
-    metadata_db, set_clause, metadata_db
+    "UPDATE %s.ducklake_snapshot_changes SET %s WHERE snapshot_id = (SELECT max(snapshot_id) FROM %s.ducklake_snapshot)",
+    table_prefix, set_clause, table_prefix
   )
   
   tryCatch({

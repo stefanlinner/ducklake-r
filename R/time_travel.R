@@ -55,9 +55,13 @@ get_ducklake_table_asof <- function(table_name, timestamp, conn = NULL) {
     timestamp_str <- as.character(timestamp)
   }
   
-  # Add schema prefix if not already present
+  # Add schema prefix if not already present.
+  # DuckDB and SQLite use the main. schema; PostgreSQL and MySQL do not.
   if (!grepl("\\.", table_name)) {
-    table_name <- paste0("main.", table_name)
+    backend <- get_ducklake_backend()
+    if (!(backend %in% c("postgres", "mysql"))) {
+      table_name <- paste0("main.", table_name)
+    }
   }
   
   # Use DuckLake's AT (TIMESTAMP => ...) syntax for time travel
@@ -118,9 +122,13 @@ get_ducklake_table_version <- function(table_name, version, conn = NULL) {
     stop("Could not determine ducklake_name. Make sure a ducklake is attached.")
   })
   
-  # Add schema prefix if not already present
+  # Add schema prefix if not already present.
+  # DuckDB and SQLite use the main. schema; PostgreSQL and MySQL do not.
   if (!grepl("\\.", table_name)) {
-    table_name <- paste0("main.", table_name)
+    backend <- get_ducklake_backend()
+    if (!(backend %in% c("postgres", "mysql"))) {
+      table_name <- paste0("main.", table_name)
+    }
   }
   
   # Use DuckLake's AT (VERSION => ...) syntax to query a specific snapshot
@@ -181,8 +189,13 @@ list_table_snapshots <- function(table_name = NULL, ducklake_name = NULL, conn =
     if (!is.null(table_name) && nrow(result) > 0) {
       # Filter by checking if table_name appears in changes column
       # The changes column contains comma-separated values like "tables_created, tables_inserted_into, main.dm_raw, 1"
-      # We need to match the full table name including schema prefix, with word boundaries
-      full_table_name <- paste0("main.", table_name)
+      # DuckDB and SQLite use main. schema prefix; PostgreSQL and MySQL do not
+      backend <- get_ducklake_backend()
+      if (backend %in% c("postgres", "mysql")) {
+        full_table_name <- table_name
+      } else {
+        full_table_name <- paste0("main.", table_name)
+      }
       # Use regex with word boundaries to avoid matching "main.dm" when looking for "main.dm_raw"
       pattern <- paste0("\\b", gsub("\\.", "\\\\.", full_table_name), "\\b")
       result <- result[grepl(pattern, result$changes), ]

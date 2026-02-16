@@ -33,7 +33,13 @@ get_metadata_table <- function(tbl_name, ducklake_name = NULL) {
     })
   }
   
-  # Metadata tables are in the __ducklake_metadata_[ducklake_name] database, main schema
-  metadata_tbl_name <- paste0("__ducklake_metadata_", ducklake_name, ".main.", tbl_name)
+  # Metadata tables are in the __ducklake_metadata_[ducklake_name] database.
+  # DuckDB and SQLite use a .main. schema qualifier; PostgreSQL and MySQL do not.
+  backend <- get_ducklake_backend()
+  if (backend %in% c("postgres", "mysql")) {
+    metadata_tbl_name <- paste0("__ducklake_metadata_", ducklake_name, ".", tbl_name)
+  } else {
+    metadata_tbl_name <- paste0("__ducklake_metadata_", ducklake_name, ".main.", tbl_name)
+  }
   return(get_ducklake_table(metadata_tbl_name))
 }

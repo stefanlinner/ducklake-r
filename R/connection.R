@@ -76,7 +76,7 @@ ducklake_db_exec <- function(sql) {
 #'
 #' @examples
 #' \dontrun{
-#' attach_ducklake("my_ducklake")
+#' attach_ducklake("my_ducklake", lake_path = "path/to/lake")
 #' # ... do work ...
 #' detach_ducklake("my_ducklake")
 #'

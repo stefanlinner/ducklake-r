@@ -7,22 +7,33 @@ test_that("attach_ducklake requires catalog_connection_string for non-DuckDB bac
   skip_if_not_installed("duckdb")
 
   expect_error(
-    attach_ducklake("test", backend = "postgres"),
+    attach_ducklake("test", lake_path = "/tmp", backend = "postgres"),
     "catalog_connection_string"
   )
   expect_error(
-    attach_ducklake("test", backend = "sqlite"),
+    attach_ducklake("test", lake_path = "/tmp", backend = "sqlite"),
     "catalog_connection_string"
   )
   expect_error(
-    attach_ducklake("test", backend = "mysql"),
+    attach_ducklake("test", lake_path = "/tmp", backend = "mysql"),
     "catalog_connection_string"
   )
 })
 
-test_that("attach_ducklake requires lake_path for non-DuckDB backends", {
+test_that("attach_ducklake requires lake_path for all backends", {
   skip_if_not_installed("duckdb")
 
+  # DuckDB backend
+  expect_error(
+    attach_ducklake("test"),
+    "lake_path"
+  )
+  expect_error(
+    attach_ducklake("test", lake_path = NULL),
+    "lake_path"
+  )
+
+  # Non-DuckDB backends
   expect_error(
     attach_ducklake(
       "test",
@@ -45,7 +56,7 @@ test_that("attach_ducklake rejects invalid backend values", {
   skip_if_not_installed("duckdb")
 
   expect_error(
-    attach_ducklake("test", backend = "oracle")
+    attach_ducklake("test", lake_path = "/tmp", backend = "oracle")
   )
 })
 
@@ -65,20 +76,16 @@ test_that("get_ducklake_backend returns 'duckdb' by default", {
 # --- SQL generation ---
 
 test_that("build_attach_sql generates correct SQL for DuckDB backend", {
-  # Without lake_path
-  sql <- ducklake:::build_attach_sql("my_lake", NULL, "duckdb", NULL, FALSE)
-  expect_true(grepl("ducklake:my_lake.ducklake", sql, fixed = TRUE))
-  expect_false(grepl("DATA_PATH", sql))
-  expect_false(grepl("READ_ONLY", sql))
-
   # With lake_path
   sql <- ducklake:::build_attach_sql("my_lake", "/data", "duckdb", NULL, FALSE)
   expect_true(grepl("ducklake:", sql))
   expect_true(grepl("DATA_PATH '/data'", sql, fixed = TRUE))
+  expect_false(grepl("READ_ONLY", sql))
 
   # With read_only
-  sql <- ducklake:::build_attach_sql("my_lake", NULL, "duckdb", NULL, TRUE)
+  sql <- ducklake:::build_attach_sql("my_lake", "/data", "duckdb", NULL, TRUE)
   expect_true(grepl("READ_ONLY", sql))
+  expect_true(grepl("DATA_PATH '/data'", sql, fixed = TRUE))
 })
 
 test_that("build_attach_sql generates correct SQL for PostgreSQL backend", {
@@ -139,7 +146,11 @@ test_that("build_attach_sql combines DATA_PATH and READ_ONLY options", {
 
 test_that("build_attach_sql includes OVERRIDE_DATA_PATH when requested", {
   sql <- ducklake:::build_attach_sql(
-    "my_lake", "/backup/data", "duckdb", NULL, FALSE,
+    "my_lake",
+    "/backup/data",
+    "duckdb",
+    NULL,
+    FALSE,
     override_data_path = TRUE
   )
   expect_true(grepl("OVERRIDE_DATA_PATH TRUE", sql, fixed = TRUE))
@@ -161,11 +172,6 @@ test_that("SQLite backend: create table, query, and time travel", {
   sqlite_catalog <- file.path(temp_dir, "metadata.sqlite")
   sqlite_data <- file.path(temp_dir, "data")
   dir.create(sqlite_data, showWarnings = FALSE, recursive = TRUE)
-
-  # Use a dedicated connection so the SQLite extension and catalog state
-  # don't leak into duckplyr's singleton used by other tests
-  conn <- DBI::dbConnect(duckdb::duckdb())
-  set_ducklake_connection(conn)
 
   tryCatch(
     {

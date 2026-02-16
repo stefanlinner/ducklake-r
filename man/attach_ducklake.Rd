@@ -6,7 +6,7 @@
 \usage{
 attach_ducklake(
   ducklake_name,
-  lake_path = NULL,
+  lake_path,
   backend = c("duckdb", "postgres", "sqlite", "mysql"),
   catalog_connection_string = NULL,
   read_only = FALSE,
@@ -16,9 +16,9 @@ attach_ducklake(
 \arguments{
 \item{ducklake_name}{Name for the ducklake, used as the database alias in DuckDB}
 
-\item{lake_path}{Optional directory path. For \code{"duckdb"} this is where the
-catalog file and Parquet data live. For other backends this sets the
-Parquet data location (DuckLake's \code{DATA_PATH}).}
+\item{lake_path}{Directory path where the lake lives. For \code{"duckdb"} this is
+where the catalog file and Parquet data are stored. For other backends this
+sets the Parquet data location (DuckLake's \code{DATA_PATH}).}
 
 \item{backend}{Catalog backend: \code{"duckdb"} (default), \code{"postgres"},
 \code{"sqlite"}, or \code{"mysql"}.}
@@ -74,7 +74,6 @@ See \url{https://github.com/duckdb/duckdb/issues/7892}.
 \examples{
 \dontrun{
 # DuckDB catalog (default)
-attach_ducklake("my_lake")
 attach_ducklake("my_lake", lake_path = "~/data/lake")
 
 # PostgreSQL catalog
