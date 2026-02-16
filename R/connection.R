@@ -28,16 +28,6 @@ get_ducklake_backend <- function() {
   if (is.null(backend)) "duckdb" else backend
 }
 
-#' Execute SQL on the DuckLake connection
-#'
-#' @param sql SQL statement to execute
-#' @returns The number of rows affected, invisibly.
-#' @keywords internal
-ducklake_db_exec <- function(sql) {
-  conn <- get_ducklake_connection()
-  invisible(DBI::dbExecute(conn, sql))
-}
-
 #' Detach from a ducklake
 #'
 #' Detaches the DuckLake database but keeps the DuckDB connection alive by

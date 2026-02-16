@@ -128,7 +128,7 @@ attach_ducklake <- function(ducklake_name, lake_path,
   
   if (ducklake_name %in% attached) {
     # Already attached - just switch to it
-    ducklake_db_exec(sprintf("USE %s;", ducklake_name))
+    duckplyr::db_exec(sprintf("USE %s;", ducklake_name))
     return(invisible(NULL))
   }
   
@@ -139,8 +139,8 @@ attach_ducklake <- function(ducklake_name, lake_path,
   attach_sql <- build_attach_sql(ducklake_name, lake_path, backend,
                                   catalog_connection_string, read_only,
                                   override_data_path)
-  ducklake_db_exec(attach_sql)
-  ducklake_db_exec(sprintf("USE %s;", ducklake_name))
+  duckplyr::db_exec(attach_sql)
+  duckplyr::db_exec(sprintf("USE %s;", ducklake_name))
   
   invisible(NULL)
 }
@@ -151,10 +151,10 @@ attach_ducklake <- function(ducklake_name, lake_path,
 #' @keywords internal
 ensure_extensions <- function(backend) {
   tryCatch({
-    ducklake_db_exec("LOAD ducklake;")
+    duckplyr::db_exec("LOAD ducklake;")
   }, error = function(e) {
-    ducklake_db_exec("INSTALL ducklake;")
-    ducklake_db_exec("LOAD ducklake;")
+    duckplyr::db_exec("INSTALL ducklake;")
+    duckplyr::db_exec("LOAD ducklake;")
   })
   
   ext <- switch(backend,
@@ -166,10 +166,10 @@ ensure_extensions <- function(backend) {
   
   if (!is.null(ext)) {
     tryCatch({
-      ducklake_db_exec(sprintf("LOAD %s;", ext))
+      duckplyr::db_exec(sprintf("LOAD %s;", ext))
     }, error = function(e) {
-      ducklake_db_exec(sprintf("INSTALL %s;", ext))
-      ducklake_db_exec(sprintf("LOAD %s;", ext))
+      duckplyr::db_exec(sprintf("INSTALL %s;", ext))
+      duckplyr::db_exec(sprintf("LOAD %s;", ext))
     })
   }
 }

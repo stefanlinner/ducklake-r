@@ -31,14 +31,14 @@ install_ducklake <- function(backend = NULL) {
 
   # the long messages thrown on load for duckplyr are suppressed here
   # TODO: find a better/more global place to do this, since duckplyr used elsewhere
-  suppressMessages(ducklake_db_exec("INSTALL ducklake;"))
+  suppressMessages(duckplyr::db_exec("INSTALL ducklake;"))
   cli::cli_inform("Installed {.pkg ducklake} extension.")
 
   valid_backends <- c("postgres", "sqlite", "mysql")
   if (!is.null(backend)) {
     backend <- match.arg(backend, valid_backends, several.ok = TRUE)
     for (ext in backend) {
-      suppressMessages(ducklake_db_exec(sprintf("INSTALL %s;", ext)))
+      suppressMessages(duckplyr::db_exec(sprintf("INSTALL %s;", ext)))
       cli::cli_inform("Installed {.pkg {ext}} extension.")
     }
   }
