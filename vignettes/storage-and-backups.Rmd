@@ -37,7 +37,7 @@ Understanding how DuckLake stores and manages your data is crucial for maintaini
 
 DuckLake separates data management into two distinct components:
 
-1. **Catalog (Metadata)**: A database file (DuckDB, SQLite, or PostgreSQL) that stores all metadata about your tables, snapshots, transactions, and data file locations. This is typically small but critically important.
+1. **Catalog (Metadata)**: A database that stores all metadata about your tables, snapshots, transactions, and data file locations. By default this is a DuckDB file, but DuckLake also supports PostgreSQL, SQLite, or MySQL as catalog backends (see `?attach_ducklake`). The catalog is typically small but critically important.
 
 2. **Storage (Data Files)**: A directory containing immutable Parquet files that hold your actual data. DuckLake never modifies existing files—it only creates new ones.
 
@@ -69,18 +69,20 @@ attach_ducklake(
   lake_path = "~/data/my_ducklake"
 )
 
-# Cloud storage - scalable, accessible from anywhere
+# PostgreSQL catalog with S3 data - multi-client, scalable
 attach_ducklake(
-  ducklake_name = "cloud_lake",
-  lake_path = "s3://my-bucket/ducklake",
-  data_path = "s3://my-bucket/ducklake/data"
+  ducklake_name = "shared_lake",
+  backend = "postgres",
+  catalog_connection_string = "dbname=ducklake_catalog host=localhost",
+  lake_path = "s3://my-bucket/ducklake/data"
 )
 
-# Hybrid approach - metadata local, data in cloud
+# SQLite catalog - lightweight multi-client option
 attach_ducklake(
-  ducklake_name = "hybrid_lake",
-  lake_path = "~/data/metadata",
-  data_path = "s3://my-bucket/data"
+  ducklake_name = "team_lake",
+  backend = "sqlite",
+  catalog_connection_string = "~/data/metadata.sqlite",
+  lake_path = "~/data/parquet_files"
 )
 ```
 
@@ -265,13 +267,14 @@ When using cross-bucket replication, update your data path:
 # Original
 attach_ducklake(
   ducklake_name = "prod_lake",
-  data_path = "s3://original-bucket/data"
+  lake_path = "s3://original-bucket/data"
 )
 
 # After recovery from replicated bucket
 attach_ducklake(
   ducklake_name = "prod_lake",
-  data_path = "s3://backup-bucket/data"
+  lake_path = "s3://backup-bucket/data",
+  override_data_path = TRUE
 )
 ```
 
