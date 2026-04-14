@@ -148,16 +148,20 @@ set_snapshot_metadata <- function(ducklake_name, author = NULL, commit_message =
   
   metadata_db <- sprintf("__ducklake_metadata_%s", ducklake_name)
   
-  # Build the SET clause
+  # Build the SET clause with parameterized placeholders to prevent SQL injection
   set_parts <- character()
+  params <- list()
   if (!is.null(author)) {
-    set_parts <- c(set_parts, sprintf("author = '%s'", author))
+    set_parts <- c(set_parts, "author = ?")
+    params <- c(params, list(author))
   }
   if (!is.null(commit_message)) {
-    set_parts <- c(set_parts, sprintf("commit_message = '%s'", commit_message))
+    set_parts <- c(set_parts, "commit_message = ?")
+    params <- c(params, list(commit_message))
   }
   if (!is.null(commit_extra_info)) {
-    set_parts <- c(set_parts, sprintf("commit_extra_info = '%s'", commit_extra_info))
+    set_parts <- c(set_parts, "commit_extra_info = ?")
+    params <- c(params, list(commit_extra_info))
   }
   
   if (length(set_parts) == 0) {
@@ -168,7 +172,6 @@ set_snapshot_metadata <- function(ducklake_name, author = NULL, commit_message =
   set_clause <- paste(set_parts, collapse = ", ")
   
   # PostgreSQL and MySQL backends don't use the .main. schema qualifier;
-
   # DuckDB and SQLite do (SQLite is mapped through DuckDB's schema model).
   backend <- get_ducklake_backend()
   if (backend %in% c("postgres", "mysql")) {
@@ -184,7 +187,7 @@ set_snapshot_metadata <- function(ducklake_name, author = NULL, commit_message =
   )
   
   tryCatch({
-    DBI::dbExecute(conn, query)
+    DBI::dbExecute(conn, query, params = params)
     message("Snapshot metadata updated")
     invisible(TRUE)
   }, error = function(e) {
