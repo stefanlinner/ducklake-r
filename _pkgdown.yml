@@ -47,6 +47,7 @@ reference:
     - attach_ducklake
     - detach_ducklake
     - get_ducklake_connection
+    - get_ducklake_backend
     
   - title: "Table Operations"
     desc: "Create and query tables"
