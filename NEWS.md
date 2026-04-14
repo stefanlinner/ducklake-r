@@ -1,3 +1,45 @@
+# ducklake 0.2.0
+
+## Multi-Backend Catalog Support
+
+DuckLake now supports PostgreSQL, SQLite, and MySQL as catalog backends in
+addition to DuckDB (#15, @stefanlinner). This aligns with the
+[DuckLake 1.0 specification](https://ducklake.select/docs/stable/specification/introduction)
+and enables concurrent multi-client access when using PostgreSQL or SQLite.
+
+### New Features
+
+* `attach_ducklake()` gains `backend`, `catalog_connection_string`, `read_only`,
+  and `override_data_path` parameters for multi-backend support.
+* `install_ducklake()` gains a `backend` parameter to pre-install backend
+  extensions (e.g., `install_ducklake(backend = "postgres")`).
+* New `get_ducklake_backend()` returns the active catalog backend type.
+* `detach_ducklake()` gains a `shutdown` parameter. By default it now performs a
+  soft detach (SQL `DETACH` + `USE memory;`) instead of shutting down the
+  connection, allowing backend switching within a session.
+* `backup_ducklake()` is now backend-aware: file-based backends (DuckDB, SQLite)
+  get catalog + data copied; PostgreSQL/MySQL get data only with guidance to use
+  `pg_dump`/`mysqldump`. Also fixes a pre-existing bug where catalog backups
+  were silently 0 bytes due to DuckDB holding file locks during `file.copy()`.
+
+### Breaking Changes
+
+* `attach_ducklake()` now **requires** `lake_path` (previously optional).
+* `set_ducklake_connection()` has been removed. The package now exclusively uses
+  duckplyr's singleton DuckDB connection.
+* `detach_ducklake()` no longer shuts down the DuckDB connection by default.
+  Pass `shutdown = TRUE` for the previous behaviour.
+
+### Internal
+
+* Schema qualifier logic updated throughout (`get_metadata_table()`,
+  `time_travel.R`, `transactions.R`) to handle PostgreSQL/MySQL backends that
+  don't use the `.main.` schema prefix.
+* New internal helpers: `build_attach_sql()`, `ensure_extensions()`,
+  `shutdown_and_reset_singleton()`.
+
+---
+
 # ducklake 0.1.0
 
 Initial release of ducklake, an R package for versioned data lake infrastructure built on DuckDB and DuckLake.
