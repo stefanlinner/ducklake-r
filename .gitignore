@@ -5,6 +5,8 @@
 .DS_Store
 .quarto
 
+README.html
+
 # ignore example files
 my_ducklake*
 docs
