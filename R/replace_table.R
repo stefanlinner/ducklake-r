@@ -4,7 +4,7 @@
 #' @param table_name Table name to replace
 #' @param .quiet Logical, whether to suppress messages (default TRUE)
 #'
-#' @return Invisibly returns NULL
+#' @returns Invisibly returns NULL
 #' @export
 #'
 #' @details

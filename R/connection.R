@@ -7,7 +7,7 @@
 #' default singleton connection, which provides critical setup (temp directory
 #' configuration, R function loading, and macro registration).
 #'
-#' @return A DuckDB connection object
+#' @returns A DuckDB connection object
 #' @export
 #'
 #' @note This function uses \code{duckplyr:::get_default_duckdb_connection()}.
@@ -116,7 +116,7 @@ shutdown_and_reset_singleton <- function() {
     }
     TRUE
   }, error = function(e) {
-    warning("Could not reset duckplyr singleton: ", e$message)
+    cli::cli_warn("Could not reset duckplyr singleton: {e$message}")
     FALSE
   })
 }

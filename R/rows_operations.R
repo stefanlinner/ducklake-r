@@ -11,7 +11,7 @@
 #' @param unmatched How to handle unmatched rows (default "error")
 #' @param ... Additional arguments passed to dplyr::rows_update()
 #'
-#' @return The updated table
+#' @returns The updated table
 #' @export
 #'
 #' @examples
@@ -40,7 +40,7 @@ rows_update <- function(x, y, by = NULL, copy = TRUE, in_place = TRUE, unmatched
 #' @param conflict How to handle conflicts (default "error")
 #' @param ... Additional arguments passed to dplyr::rows_insert()
 #'
-#' @return The updated table
+#' @returns The updated table
 #' @export
 #'
 #' @examples
@@ -68,7 +68,7 @@ rows_insert <- function(x, y, by = NULL, copy = TRUE, in_place = TRUE, conflict 
 #' @param unmatched How to handle unmatched rows (default "error")
 #' @param ... Additional arguments passed to dplyr::rows_delete()
 #'
-#' @return The updated table
+#' @returns The updated table
 #' @export
 #'
 #' @examples

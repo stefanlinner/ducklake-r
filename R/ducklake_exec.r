@@ -4,7 +4,7 @@
 #' @param table_name The target table name for the operation. If not provided, will be extracted from the table attribute (set by get_ducklake_table())
 #' @param .quiet Logical, whether to suppress debug output (default TRUE)
 #'
-#' @return The result from duckplyr::db_exec()
+#' @returns The result from duckplyr::db_exec()
 #' @export
 #'
 #' @details
@@ -38,7 +38,7 @@ ducklake_exec <- function(.data, table_name = NULL, .quiet = TRUE) {
   if (is.null(table_name)) {
     table_name <- attr(.data, "ducklake_table_name", exact = TRUE)
     if (is.null(table_name)) {
-      stop("table_name must be provided either as an argument or via get_ducklake_table()")
+      cli::cli_abort("{.arg table_name} must be provided either as an argument or via {.fn get_ducklake_table}.")
     }
   }
 

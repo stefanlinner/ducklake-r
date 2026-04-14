@@ -62,7 +62,7 @@ create_table <- function(data_source, table_name) {
   if (is.character(data_source)) {
     duckplyr::db_exec(sprintf("CREATE TABLE %s AS FROM '%s';", table_name, data_source))
   } else {
-    stop("data_source must be a character string (file path or URL) or a data.frame")
+    cli::cli_abort("{.arg data_source} must be a character string (file path or URL) or a data.frame.")
   }
   
   invisible(NULL)

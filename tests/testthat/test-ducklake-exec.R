@@ -44,7 +44,7 @@ test_that("ducklake_exec fails when table_name cannot be determined", {
     dplyr::tbl(conn, "test_no_name") |>
       dplyr::mutate(value = "updated") |>
       ducklake_exec(),  # No table_name provided and not from get_ducklake_table()
-    "table_name must be provided"
+    "table_name"
   )
   
   cleanup_temp_ducklake(lake)
@@ -197,7 +197,7 @@ test_that("show_ducklake_query fails when table_name cannot be determined", {
     dplyr::tbl(conn, "test_show_no_name") |>
       dplyr::mutate(value = "preview") |>
       show_ducklake_query(),  # No table_name provided
-    "table_name must be provided"
+    "table_name"
   )
   
   cleanup_temp_ducklake(lake)

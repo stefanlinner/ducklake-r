@@ -29,7 +29,7 @@ get_metadata_table <- function(tbl_name, ducklake_name = NULL) {
         ducklake_name <- current_db
       }
     }, error = function(e) {
-      stop("Could not determine ducklake_name. Please provide it explicitly.")
+      cli::cli_abort("Could not determine {.arg ducklake_name}. Please provide it explicitly.")
     })
   }
   

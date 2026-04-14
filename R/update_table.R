@@ -4,7 +4,7 @@
 #' @param table_name Table name to update
 #' @param .quiet Logical, whether to suppress debug output (default FALSE for backward compatibility)
 #'
-#' @return Invisibly returns the SQL statement string after executing it
+#' @returns Invisibly returns the SQL statement string after executing it
 #' @keywords internal
 #' @noRd
 #'
@@ -127,14 +127,14 @@ update_table <- function(.data, table_name, .quiet = FALSE) {
     invisible(result_sql)
 
   }, error = function(e) {
-    stop("Failed to generate DuckLake SQL: ", e$message)
+    cli::cli_abort("Failed to generate DuckLake SQL: {e$message}")
   })
 }
 
 #' Extract column assignments from SQL SELECT statement
 #'
 #' @param sql_text A SQL SELECT statement
-#' @return A string of comma-separated column assignments for UPDATE SET clause
+#' @returns A string of comma-separated column assignments for UPDATE SET clause
 #' @keywords internal
 extract_assignments_from_sql <- function(sql_text) {
   select_part <- gsub("SELECT\\s+(.+?)\\s+FROM.*", "\\1", sql_text, perl = TRUE)
@@ -165,7 +165,7 @@ extract_assignments_from_sql <- function(sql_text) {
   }
 
   if (length(assignments) == 0) {
-    stop("No column assignments found for UPDATE operation")
+    cli::cli_abort("No column assignments found for UPDATE operation.")
   }
 
   paste(assignments, collapse = ", ")

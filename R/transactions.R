@@ -5,7 +5,7 @@
 #'
 #' @param conn Optional DuckDB connection object. If not provided, uses the default ducklake connection.
 #'
-#' @return Invisibly returns TRUE on success
+#' @returns Invisibly returns TRUE on success
 #' @export
 #'
 #' @details
@@ -38,7 +38,7 @@ begin_transaction <- function(conn = NULL) {
   }
   
   DBI::dbExecute(conn, "BEGIN TRANSACTION;")
-  message("Transaction started")
+  cli::cli_inform("Transaction started.")
   invisible(TRUE)
 }
 
@@ -52,7 +52,7 @@ begin_transaction <- function(conn = NULL) {
 #' @param commit_message Optional commit message describing the changes
 #' @param commit_extra_info Optional extra information about the commit
 #'
-#' @return Invisibly returns TRUE on success
+#' @returns Invisibly returns TRUE on success
 #' @export
 #'
 #' @details
@@ -85,7 +85,7 @@ commit_transaction <- function(conn = NULL, author = NULL, commit_message = NULL
   }
   
   DBI::dbExecute(conn, "COMMIT;")
-  message("Transaction committed")
+  cli::cli_inform("Transaction committed.")
   
   # Add metadata if any is provided
   if (!is.null(author) || !is.null(commit_message) || !is.null(commit_extra_info)) {
@@ -101,7 +101,7 @@ commit_transaction <- function(conn = NULL, author = NULL, commit_message = NULL
         conn = conn
       )
     } else {
-      warning("Could not determine ducklake name; metadata not set")
+      cli::cli_warn("Could not determine ducklake name; metadata not set.")
     }
   }
   
@@ -119,7 +119,7 @@ commit_transaction <- function(conn = NULL, author = NULL, commit_message = NULL
 #' @param commit_extra_info Optional extra information about the commit
 #' @param conn Optional DuckDB connection object. If not provided, uses the default ducklake connection.
 #'
-#' @return Invisibly returns TRUE on success
+#' @returns Invisibly returns TRUE on success
 #' @export
 #'
 #' @details
@@ -165,7 +165,7 @@ set_snapshot_metadata <- function(ducklake_name, author = NULL, commit_message =
   }
   
   if (length(set_parts) == 0) {
-    warning("No metadata provided to set")
+    cli::cli_warn("No metadata provided to set.")
     return(invisible(FALSE))
   }
   
@@ -188,10 +188,10 @@ set_snapshot_metadata <- function(ducklake_name, author = NULL, commit_message =
   
   tryCatch({
     DBI::dbExecute(conn, query, params = params)
-    message("Snapshot metadata updated")
+    cli::cli_inform("Snapshot metadata updated.")
     invisible(TRUE)
   }, error = function(e) {
-    warning("Could not update snapshot metadata: ", e$message)
+    cli::cli_warn("Could not update snapshot metadata: {e$message}")
     invisible(FALSE)
   })
 }
@@ -210,7 +210,7 @@ set_snapshot_metadata <- function(ducklake_name, author = NULL, commit_message =
 #' @param commit_extra_info Optional extra information about the commit
 #' @param conn Optional DuckDB connection object. If not provided, uses the default ducklake connection.
 #'
-#' @return Invisibly returns the result of the expression
+#' @returns Invisibly returns the result of the expression
 #' @export
 #'
 #' @details
@@ -277,7 +277,7 @@ with_transaction <- function(expr, author = NULL, commit_message = NULL,
     invisible(result)
   }, error = function(e) {
     rollback_transaction(conn = conn)
-    stop("Transaction rolled back due to error: ", e$message, call. = FALSE)
+    cli::cli_abort("Transaction rolled back due to error: {e$message}", call = NULL)
   })
 }
 
@@ -288,7 +288,7 @@ with_transaction <- function(expr, author = NULL, commit_message = NULL,
 #'
 #' @param conn Optional DuckDB connection object. If not provided, uses the default ducklake connection.
 #'
-#' @return Invisibly returns TRUE on success
+#' @returns Invisibly returns TRUE on success
 #' @export
 #'
 #' @details
@@ -308,6 +308,6 @@ rollback_transaction <- function(conn = NULL) {
   }
   
   DBI::dbExecute(conn, "ROLLBACK;")
-  message("Transaction rolled back")
+  cli::cli_inform("Transaction rolled back.")
   invisible(TRUE)
 }

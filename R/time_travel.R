@@ -7,7 +7,7 @@
 #' @param timestamp A POSIXct timestamp or character string in ISO 8601 format (e.g., "2024-01-15 10:30:00")
 #' @param conn Optional DuckDB connection object. If not provided, uses the default ducklake connection.
 #'
-#' @return A dplyr lazy query object (tbl_lazy) that can be further manipulated with dplyr verbs
+#' @returns A dplyr lazy query object (tbl_lazy) that can be further manipulated with dplyr verbs
 #' @export
 #'
 #' @details
@@ -86,7 +86,7 @@ get_ducklake_table_asof <- function(table_name, timestamp, conn = NULL) {
 #' @param version The snapshot_id to query (get this from \code{list_table_snapshots()})
 #' @param conn Optional DuckDB connection object. If not provided, uses the default ducklake connection.
 #'
-#' @return A dplyr lazy query object (tbl_lazy) that can be further manipulated with dplyr verbs
+#' @returns A dplyr lazy query object (tbl_lazy) that can be further manipulated with dplyr verbs
 #' @export
 #'
 #' @details
@@ -119,7 +119,7 @@ get_ducklake_table_version <- function(table_name, version, conn = NULL) {
     current_db <- DBI::dbGetQuery(conn, "SELECT current_database() as db")$db
     ducklake_name <- current_db
   }, error = function(e) {
-    stop("Could not determine ducklake_name. Make sure a ducklake is attached.")
+    cli::cli_abort("Could not determine {.arg ducklake_name}. Make sure a ducklake is attached.")
   })
   
   # Add schema prefix if not already present.
@@ -147,7 +147,7 @@ get_ducklake_table_version <- function(table_name, version, conn = NULL) {
 #' @param ducklake_name The name of the ducklake (database) to query. If NULL, will attempt to infer from current database.
 #' @param conn Optional DuckDB connection object. If not provided, uses the default ducklake connection.
 #'
-#' @return A data frame with snapshot information (version, timestamp, etc.)
+#' @returns A data frame with snapshot information (version, timestamp, etc.)
 #' @export
 #'
 #' @details
@@ -176,7 +176,7 @@ list_table_snapshots <- function(table_name = NULL, ducklake_name = NULL, conn =
         ducklake_name <- current_db
       }
     }, error = function(e) {
-      stop("Could not determine ducklake_name. Please provide it explicitly.")
+      cli::cli_abort("Could not determine {.arg ducklake_name}. Please provide it explicitly.")
     })
   }
   
@@ -203,9 +203,11 @@ list_table_snapshots <- function(table_name = NULL, ducklake_name = NULL, conn =
     
     return(result)
   }, error = function(e) {
-    warning("Could not retrieve snapshot information. ",
-            "Make sure the ducklake is attached and has snapshots. ",
-            "Error: ", e$message)
+    cli::cli_warn(c(
+      "Could not retrieve snapshot information.",
+      "i" = "Make sure the ducklake is attached and has snapshots.",
+      "x" = e$message
+    ))
     return(data.frame())
   })
 }
@@ -220,7 +222,7 @@ list_table_snapshots <- function(table_name = NULL, ducklake_name = NULL, conn =
 #' @param timestamp Optional timestamp to restore to (POSIXct or character)
 #' @param conn Optional DuckDB connection object. If not provided, uses the default ducklake connection.
 #'
-#' @return Invisibly returns TRUE on success
+#' @returns Invisibly returns TRUE on success
 #' @export
 #'
 #' @details
@@ -245,10 +247,10 @@ restore_table_version <- function(table_name, version = NULL, timestamp = NULL, 
   
   # Check that exactly one of version or timestamp is provided
   if (is.null(version) && is.null(timestamp)) {
-    stop("Must provide either 'version' or 'timestamp'")
+    cli::cli_abort("Must provide either {.arg version} or {.arg timestamp}.")
   }
   if (!is.null(version) && !is.null(timestamp)) {
-    stop("Cannot provide both 'version' and 'timestamp'")
+    cli::cli_abort("Cannot provide both {.arg version} and {.arg timestamp}.")
   }
   
   # Build the restore query
@@ -267,10 +269,13 @@ restore_table_version <- function(table_name, version = NULL, timestamp = NULL, 
   # Execute the restore
   tryCatch({
     DBI::dbExecute(conn, query)
-    message("Table '", table_name, "' restored successfully")
+    cli::cli_inform("Table {.val {table_name}} restored successfully.")
     invisible(TRUE)
   }, error = function(e) {
-    stop("Failed to restore table: ", e$message, "\n",
-         "Note: RESTORE functionality depends on table format and DuckDB version.")
+    cli::cli_abort(c(
+      "Failed to restore table.",
+      "x" = e$message,
+      "i" = "RESTORE functionality depends on table format and DuckDB version."
+    ))
   })
 }
