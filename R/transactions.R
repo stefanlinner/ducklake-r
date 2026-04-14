@@ -57,11 +57,12 @@ begin_transaction <- function(conn = NULL) {
 #'
 #' @details
 #' This function commits all changes made since \code{begin_transaction()} was called,
-#' making them permanent in the database. DuckLake automatically tracks changes
-#' in the \code{ducklake_snapshot_changes} metadata table.
+#' making them permanent in the database.
 #'
 #' If \code{author}, \code{commit_message}, or \code{commit_extra_info} are provided,
-#' they will be automatically added to the snapshot metadata after committing.
+#' they will be set using \code{CALL ducklake.set_commit_message()} within the
+#' transaction before the \code{COMMIT} statement, as required by the DuckLake
+#' v1.0 specification.
 #'
 #' @examples
 #' \dontrun{
@@ -84,34 +85,63 @@ commit_transaction <- function(conn = NULL, author = NULL, commit_message = NULL
     conn <- get_ducklake_connection()
   }
   
-  DBI::dbExecute(conn, "COMMIT;")
-  cli::cli_inform("Transaction committed.")
-  
-  # Add metadata if any is provided
+  # In DuckLake v1.0, commit metadata must be set within the transaction
+  # using CALL set_commit_message() before COMMIT
   if (!is.null(author) || !is.null(commit_message) || !is.null(commit_extra_info)) {
-    # Get the current database name
-    current_db <- DBI::dbGetQuery(conn, "SELECT current_database() as db")$db
+    current_db <- tryCatch(
+      DBI::dbGetQuery(conn, "SELECT current_database() as db")$db,
+      error = function(e) NULL
+    )
     
     if (!is.null(current_db) && current_db != "") {
-      set_snapshot_metadata(
-        ducklake_name = current_db,
-        author = author,
-        commit_message = commit_message,
-        commit_extra_info = commit_extra_info,
-        conn = conn
+      # Build the CALL set_commit_message() statement
+      # Signature: CALL ducklake.set_commit_message(author, message, extra_info => '...')
+      author_sql <- if (!is.null(author)) {
+        sprintf("'%s'", gsub("'", "''", author))
+      } else {
+        "NULL"
+      }
+      message_sql <- if (!is.null(commit_message)) {
+        sprintf("'%s'", gsub("'", "''", commit_message))
+      } else {
+        "NULL"
+      }
+      
+      if (!is.null(commit_extra_info)) {
+        extra_sql <- sprintf("'%s'", gsub("'", "''", commit_extra_info))
+        call_sql <- sprintf(
+          "CALL %s.set_commit_message(%s, %s, extra_info => %s)",
+          current_db, author_sql, message_sql, extra_sql
+        )
+      } else {
+        call_sql <- sprintf(
+          "CALL %s.set_commit_message(%s, %s)",
+          current_db, author_sql, message_sql
+        )
+      }
+      
+      tryCatch(
+        DBI::dbExecute(conn, call_sql),
+        error = function(e) {
+          cli::cli_warn("Could not set commit metadata: {e$message}")
+        }
       )
     } else {
       cli::cli_warn("Could not determine ducklake name; metadata not set.")
     }
   }
   
+  DBI::dbExecute(conn, "COMMIT;")
+  cli::cli_inform("Transaction committed.")
+  
   invisible(TRUE)
 }
 
 #' Set metadata for the most recent snapshot
 #'
-#' Updates the author, commit message, and/or extra info for the most recent
-#' snapshot in a DuckLake catalog.
+#' Sets the author, commit message, and/or extra info for the most recent
+#' snapshot in a DuckLake catalog by updating the `ducklake_snapshot_changes`
+#' metadata table directly.
 #'
 #' @param ducklake_name The name of the DuckLake catalog
 #' @param author Optional author name to associate with the snapshot
@@ -123,9 +153,10 @@ commit_transaction <- function(conn = NULL, author = NULL, commit_message = NULL
 #' @export
 #'
 #' @details
-#' This function updates the metadata columns in the \code{ducklake_snapshot_changes}
-#' table for the most recent snapshot. Call this after \code{commit_transaction()}
-#' to add audit information to your commits.
+#' This function retroactively updates metadata on the most recent snapshot.
+#' To set metadata at commit time, use the \code{author}, \code{commit_message},
+#' and \code{commit_extra_info} arguments in \code{commit_transaction()} or
+#' \code{with_transaction()} instead.
 #'
 #' @examples
 #' \dontrun{
@@ -133,7 +164,7 @@ commit_transaction <- function(conn = NULL, author = NULL, commit_message = NULL
 #' # ... make changes ...
 #' commit_transaction()
 #' 
-#' # Add metadata to the snapshot
+#' # Add metadata to the snapshot after the fact
 #' set_snapshot_metadata(
 #'   ducklake_name = "my_ducklake",
 #'   author = "Data Team",
@@ -146,48 +177,42 @@ set_snapshot_metadata <- function(ducklake_name, author = NULL, commit_message =
     conn <- get_ducklake_connection()
   }
   
-  metadata_db <- sprintf("__ducklake_metadata_%s", ducklake_name)
-  
-  # Build the SET clause with parameterized placeholders to prevent SQL injection
-  set_parts <- character()
-  params <- list()
-  if (!is.null(author)) {
-    set_parts <- c(set_parts, "author = ?")
-    params <- c(params, list(author))
-  }
-  if (!is.null(commit_message)) {
-    set_parts <- c(set_parts, "commit_message = ?")
-    params <- c(params, list(commit_message))
-  }
-  if (!is.null(commit_extra_info)) {
-    set_parts <- c(set_parts, "commit_extra_info = ?")
-    params <- c(params, list(commit_extra_info))
-  }
-  
-  if (length(set_parts) == 0) {
+  if (is.null(author) && is.null(commit_message) && is.null(commit_extra_info)) {
     cli::cli_warn("No metadata provided to set.")
     return(invisible(FALSE))
   }
   
-  set_clause <- paste(set_parts, collapse = ", ")
-  
-  # PostgreSQL and MySQL backends don't use the .main. schema qualifier;
-  # DuckDB and SQLite do (SQLite is mapped through DuckDB's schema model).
-  backend <- get_ducklake_backend()
-  if (backend %in% c("postgres", "mysql")) {
-    table_prefix <- metadata_db
-  } else {
-    table_prefix <- sprintf("%s.main", metadata_db)
+  # Build SET clauses for the UPDATE
+  set_clauses <- c()
+  if (!is.null(author)) {
+    set_clauses <- c(set_clauses,
+      sprintf("author = '%s'", gsub("'", "''", author)))
+  }
+  if (!is.null(commit_message)) {
+    set_clauses <- c(set_clauses,
+      sprintf("commit_message = '%s'", gsub("'", "''", commit_message)))
+  }
+  if (!is.null(commit_extra_info)) {
+    set_clauses <- c(set_clauses,
+      sprintf("commit_extra_info = '%s'", gsub("'", "''", commit_extra_info)))
   }
   
-  # Update the most recent snapshot
-  query <- sprintf(
-    "UPDATE %s.ducklake_snapshot_changes SET %s WHERE snapshot_id = (SELECT max(snapshot_id) FROM %s.ducklake_snapshot)",
-    table_prefix, set_clause, table_prefix
+  # Qualify the metadata table name based on backend
+  backend <- get_ducklake_backend()
+  meta_db <- paste0("__ducklake_metadata_", ducklake_name)
+  if (backend %in% c("postgres", "mysql")) {
+    tbl_ref <- sprintf("\"%s\".ducklake_snapshot_changes", meta_db)
+  } else {
+    tbl_ref <- sprintf("\"%s\".main.ducklake_snapshot_changes", meta_db)
+  }
+  
+  update_sql <- sprintf(
+    "UPDATE %s SET %s WHERE snapshot_id = (SELECT MAX(snapshot_id) FROM %s)",
+    tbl_ref, paste(set_clauses, collapse = ", "), tbl_ref
   )
   
   tryCatch({
-    DBI::dbExecute(conn, query, params = params)
+    DBI::dbExecute(conn, update_sql)
     cli::cli_inform("Snapshot metadata updated.")
     invisible(TRUE)
   }, error = function(e) {
