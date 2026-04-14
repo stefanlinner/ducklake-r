@@ -150,6 +150,7 @@ Check out the [pkgdown site](https://tgerke.github.io/ducklake-r/) for detailed 
 ## Key features
 
 - **Versioned data lake**: Every data change automatically tracked with timestamps and metadata
+- **Multi-backend catalogs**: Use DuckDB (default), PostgreSQL, SQLite, or MySQL as the catalog database — enables concurrent multi-client access with PostgreSQL or SQLite ([DuckLake 1.0 spec](https://ducklake.select/docs/stable/specification/introduction))
 - **Lightweight snapshots**: Create unlimited snapshots without frequent compacting steps
 - **Medallion architecture**: Bronze/silver/gold layers for data lineage and quality
 - **ACID transactions**: Atomic updates with concurrent access and transactional guarantees over multi-table operations
