@@ -45,6 +45,26 @@ attach_ducklake("my_lake", lake_path = vignette_temp_dir)
 attach_ducklake("existing_lake", lake_path = "/path/to/data_lake")
 ```
 
+### Use an alternative catalog backend
+
+```{r attach-postgres, eval=FALSE}
+# PostgreSQL catalog for multi-client access
+attach_ducklake(
+  "shared_lake",
+  backend = "postgres",
+  catalog_connection_string = "dbname=ducklake_catalog host=localhost",
+  lake_path = "/shared/lake/data/"
+)
+
+# SQLite catalog for lightweight local multi-client setups
+attach_ducklake(
+  "team_lake",
+  backend = "sqlite",
+  catalog_connection_string = "metadata.sqlite",
+  lake_path = "data_files/"
+)
+```
+
 ### Detach from a data lake
 
 ```{r detach, eval=FALSE}
