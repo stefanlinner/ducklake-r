@@ -88,7 +88,7 @@ set_inlining_row_limit <- function(limit,
 
     if (!is.null(table_name) && !is.null(schema_name)) {
       call_sql <- sprintf(
-        "CALL %s.set_option('data_inlining_row_limit', %d, schema_name => '%s', table_name => '%s');",
+        "CALL %s.set_option('data_inlining_row_limit', %d, schema => '%s', table_name => '%s');",
         ducklake_name, limit,
         gsub("'", "''", schema_name),
         gsub("'", "''", table_name)
@@ -101,7 +101,7 @@ set_inlining_row_limit <- function(limit,
       )
     } else {
       call_sql <- sprintf(
-        "CALL %s.set_option('data_inlining_row_limit', %d, schema_name => '%s');",
+        "CALL %s.set_option('data_inlining_row_limit', %d, schema => '%s');",
         ducklake_name, limit,
         gsub("'", "''", schema_name)
       )
@@ -174,30 +174,25 @@ get_inlining_row_limit <- function(table_name = NULL,
   }
 
   if (!is.null(table_name) && !is.null(schema_name)) {
-    call_sql <- sprintf(
-      "SELECT * FROM %s.get_option('data_inlining_row_limit', schema_name => '%s', table_name => '%s');",
-      ducklake_name,
-      gsub("'", "''", schema_name),
-      gsub("'", "''", table_name)
-    )
+    scope_filter <- sprintf("scope = 'TABLE' AND scope_entry = '%s.%s'",
+                            gsub("'", "''", schema_name),
+                            gsub("'", "''", table_name))
   } else if (!is.null(table_name)) {
-    call_sql <- sprintf(
-      "SELECT * FROM %s.get_option('data_inlining_row_limit', table_name => '%s');",
-      ducklake_name,
-      gsub("'", "''", table_name)
-    )
+    scope_filter <- sprintf("scope = 'TABLE' AND scope_entry LIKE '%%.%s'",
+                            gsub("'", "''", table_name))
   } else {
-    call_sql <- sprintf(
-      "SELECT * FROM %s.get_option('data_inlining_row_limit', schema_name => '%s');",
-      ducklake_name,
-      gsub("'", "''", schema_name)
-    )
+    scope_filter <- sprintf("scope = 'SCHEMA' AND scope_entry = '%s'",
+                            gsub("'", "''", schema_name))
   }
+
+  call_sql <- sprintf(
+    "SELECT value FROM ducklake_options('%s') WHERE option_name = 'data_inlining_row_limit' AND %s;",
+    ducklake_name, scope_filter
+  )
 
   result <- tryCatch(
     DBI::dbGetQuery(conn, call_sql),
     error = function(e) {
-      # If get_option is not available, fall back to global
       cli::cli_warn("Could not query per-table inlining limit: {e$message}")
       return(data.frame())
     }
@@ -208,7 +203,7 @@ get_inlining_row_limit <- function(table_name = NULL,
     return(get_inlining_row_limit())
   }
 
-  as.integer(result[[1L]][1L])
+  as.integer(result$value[1L])
 }
 
 #' Flush inlined data to Parquet files
